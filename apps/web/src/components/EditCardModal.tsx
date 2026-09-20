@@ -95,10 +95,20 @@ export function EditCardModal({
       <div className="w-full max-w-lg rounded-[26px] bg-card p-8 shadow-xl">
         <h2 className="font-serif text-[34px]">Edit card</h2>
         <div className="mt-6 space-y-4">
-          <Field label="Front">
+          <Field label="English (front)">
+            <textarea
+              value={meaning}
+              onChange={(e) => setMeaning(e.target.value)}
+              rows={2}
+              placeholder="Prompt shown first while studying"
+              className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
+            />
+          </Field>
+          <Field label="Word (back)">
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
+              placeholder="Target-language word"
               className="w-full rounded-full bg-field px-4 py-3 outline-none"
             />
           </Field>
@@ -106,22 +116,17 @@ export function EditCardModal({
             <input
               value={reading}
               onChange={(e) => setReading(e.target.value)}
+              placeholder="Pronunciation / kana / pinyin"
               className="w-full rounded-full bg-field px-4 py-3 outline-none"
             />
           </Field>
-          <Field label="Back">
+          <Field label="Example">
             <textarea
-              value={meaning}
-              onChange={(e) => setMeaning(e.target.value)}
-              rows={3}
-              className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
-            />
-          </Field>
-          <Field label="Notes">
-            <input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-full bg-field px-4 py-3 outline-none"
+              rows={3}
+              placeholder={"Sentence in the target language\nEnglish translation"}
+              className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
             />
           </Field>
           <Field label="Deck">

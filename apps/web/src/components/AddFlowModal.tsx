@@ -152,8 +152,15 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
         <div className="mt-5 min-h-0 flex-1 overflow-auto">
           {tab === "manual" ? (
             <div className="space-y-3">
+              <textarea
+                placeholder="English (front) — shown first while studying"
+                value={meaning}
+                onChange={(e) => setMeaning(e.target.value)}
+                rows={2}
+                className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
+              />
               <input
-                placeholder="Term"
+                placeholder="Word (back) — target language"
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
                 className="w-full rounded-full bg-field px-4 py-3 outline-none"
@@ -165,17 +172,11 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
                 className="w-full rounded-full bg-field px-4 py-3 outline-none"
               />
               <textarea
-                placeholder="Meaning"
-                value={meaning}
-                onChange={(e) => setMeaning(e.target.value)}
-                rows={3}
-                className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
-              />
-              <input
-                placeholder="Notes"
+                placeholder={"Example sentence\nEnglish translation"}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full rounded-full bg-field px-4 py-3 outline-none"
+                rows={3}
+                className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
               />
               <PillButton
                 variant="oxblood"

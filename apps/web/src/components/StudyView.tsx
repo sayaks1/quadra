@@ -192,32 +192,45 @@ export function StudyView({ deckId }: { deckId?: string }) {
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center">
-        <div className="rounded-[20px] bg-card px-8 py-10 shadow-sm">
-          <div className="mb-8 flex items-center justify-between text-[12px] text-stone">
-            <span>
-              {current.anki.phase === "new" ||
-              (current.anki.phase === "learning" && current.anki.reps === 0)
-                ? "New"
-                : current.anki.phase === "learning" || current.anki.phase === "relearning"
-                  ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
-                  : `Review · seen ${current.anki.reps} times`}
-            </span>
-            <button type="button" className="hover:text-ink" onClick={playAudio}>
-              Play audio <kbd className="ml-1 rounded bg-field px-1.5 py-0.5 text-[11px]">A</kbd>
-            </button>
+        <div className="rounded-[20px] bg-card px-8 py-10 text-center shadow-sm">
+          <div className="mb-8 text-[12px] text-stone">
+            {current.anki.phase === "new" ||
+            (current.anki.phase === "learning" && current.anki.reps === 0)
+              ? "New"
+              : current.anki.phase === "learning" || current.anki.phase === "relearning"
+                ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
+                : `Review · seen ${current.anki.reps} times`}
           </div>
-          <div className="font-serif text-[34px] leading-snug">{current.term}</div>
-          {current.reading ? (
-            <div className="mt-2 text-[14.5px] text-stone">{current.reading}</div>
-          ) : null}
+          {/* Front is always English */}
+          <div className="font-serif text-[34px] leading-snug text-ink">
+            {current.meaning}
+          </div>
           {revealed ? (
             <>
               <div className="my-8 h-px bg-stone/30" />
-              <div className="font-serif text-[20px] leading-relaxed text-ink">
-                {current.reading ? `${current.reading} — ` : ""}
-                {current.meaning}
-                {current.notes ? `. ${current.notes}` : ""}
+              <div className="flex items-center justify-center gap-3">
+                <div className="font-serif text-[34px] leading-snug">
+                  {current.term}
+                  {current.reading ? (
+                    <span className="font-sans text-[20px] text-stone">
+                      {" "}
+                      ({current.reading})
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Play audio"
+                  title="Play audio (A)"
+                  onClick={playAudio}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone/50 text-ink transition hover:bg-field"
+                >
+                  <PlayIcon />
+                </button>
               </div>
+              {current.notes.trim() ? (
+                <ExampleNotes notes={current.notes} />
+              ) : null}
             </>
           ) : null}
         </div>
@@ -270,6 +283,32 @@ export function StudyView({ deckId }: { deckId?: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ExampleNotes({ notes }: { notes: string }) {
+  const lines = notes
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const example = lines[0] ?? notes.trim();
+  const translation = lines.length > 1 ? lines.slice(1).join(" ") : null;
+
+  return (
+    <div className="mt-6 space-y-1.5 text-[14.5px] leading-relaxed">
+      <p className="text-ink">
+        {/^ex\.?\s/i.test(example) ? example : `ex. ${example}`}
+      </p>
+      {translation ? <p className="text-stone">{translation}</p> : null}
+    </div>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+      <path fill="currentColor" d="M3 1.5v9l8-4.5-8-4.5z" />
+    </svg>
   );
 }
 

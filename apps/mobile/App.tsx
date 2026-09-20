@@ -182,14 +182,22 @@ export default function App() {
                   ? "New"
                   : `Review · seen ${current.anki.reps} times`}
             </Text>
-            <Text style={styles.cardTerm}>{current.term}</Text>
+            {/* Front is always English */}
+            <Text style={styles.cardTerm}>{current.meaning}</Text>
             {revealed ? (
               <>
                 <View style={styles.divider} />
-                <Text style={styles.cardBack}>
-                  {current.reading ? `${current.reading} — ` : ""}
-                  {current.meaning}
+                <Text style={styles.cardTerm}>
+                  {current.term}
+                  {current.reading ? ` (${current.reading})` : ""}
                 </Text>
+                {current.notes.trim() ? (
+                  <Text style={styles.cardBack}>
+                    {/^ex\.?\s/i.test(current.notes.trim())
+                      ? current.notes.trim()
+                      : `ex. ${current.notes.trim()}`}
+                  </Text>
+                ) : null}
               </>
             ) : null}
           </View>
