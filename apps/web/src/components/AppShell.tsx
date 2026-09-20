@@ -49,27 +49,93 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [route, setRoute]);
 
+  // Pull cloud/local store on boot
+  useEffect(() => {
+    let cancelled = false;
+    const replaceStore = useQuadra.getState().replaceStore;
+    const setSyncBackend = useQuadra.getState().setSyncBackend;
+    useQuadra.setState({ syncStatus: "syncing" });
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/store");
+        const data = await res.json();
+        if (cancelled) return;
+        setSyncBackend(data.backend === "supabase" ? "supabase" : "local");
+
+        const cloudHasData =
+          Array.isArray(data.decks) &&
+          Array.isArray(data.cards) &&
+          (data.decks.length > 0 || data.cards.length > 0);
+
+        if (data.backend === "supabase" && cloudHasData) {
+          replaceStore({
+            decks: data.decks,
+            cards: data.cards,
+            reviews: data.reviews ?? [],
+            settings: data.settings,
+            version: data.version ?? 3,
+          });
+          useQuadra.setState({ syncStatus: "synced" });
+          return;
+        }
+
+        if (data.backend === "supabase" && !cloudHasData) {
+          // Seed empty cloud from current local/demo store
+          const { decks, cards, reviews, settings, version } = useQuadra.getState();
+          const put = await fetch("/api/store", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decks, cards, reviews, settings, version }),
+          });
+          useQuadra.setState({
+            syncStatus: put.ok ? "synced" : "offline",
+          });
+          return;
+        }
+
+        useQuadra.setState({ syncStatus: "local" });
+      } catch {
+        if (!cancelled) useQuadra.setState({ syncStatus: "offline" });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     const unsub = useQuadra.subscribe((state, prev) => {
       if (
         state.decks === prev.decks &&
         state.cards === prev.cards &&
-        state.reviews === prev.reviews
+        state.reviews === prev.reviews &&
+        state.settings === prev.settings
       ) {
         return;
       }
       if (syncTimer.current) window.clearTimeout(syncTimer.current);
       syncTimer.current = window.setTimeout(() => {
         const { decks, cards, reviews, settings, version } = useQuadra.getState();
+        useQuadra.setState({ syncStatus: "syncing" });
         void fetch("/api/store", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decks, cards, reviews, settings, version }),
         })
-          .then(() => {
-            if (useQuadra.getState().syncStatus !== "synced") {
-              useQuadra.setState({ syncStatus: "synced" });
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (data.backend === "supabase" || data.backend === "local") {
+              useQuadra.getState().setSyncBackend(data.backend);
             }
+            useQuadra.setState({
+              syncStatus: res.ok
+                ? data.backend === "supabase"
+                  ? "synced"
+                  : "local"
+                : "offline",
+            });
           })
           .catch(() => useQuadra.setState({ syncStatus: "offline" }));
       }, 600);

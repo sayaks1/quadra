@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Card } from "@quadra/shared";
 import { activeDecks } from "@quadra/shared";
 import { PillButton } from "@/components/ui";
+import { mediaUrl } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
 
 export function EditCardModal({
@@ -24,6 +25,7 @@ export function EditCardModal({
   const [notes, setNotes] = useState("");
   const [deckId, setDeckId] = useState("");
   const [audioKey, setAudioKey] = useState<string | null>(null);
+  const [imageKey, setImageKey] = useState<string | null>(null);
   const [audioSource, setAudioSource] = useState<Card["audioSource"]>("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function EditCardModal({
     setNotes(card.notes);
     setDeckId(card.deckId);
     setAudioKey(card.audioKey ?? null);
+    setImageKey(card.imageKey ?? null);
     setAudioSource(card.audioSource);
     setError(null);
   }, [card]);
@@ -90,9 +93,40 @@ export function EditCardModal({
     }
   }
 
+  async function onImageFile(file: File | null) {
+    if (!file || !card) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Choose an image file (png, jpg, webp…).");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const filename = `img_${card.id}_${Date.now()}.${ext}`;
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "x-filename": filename,
+        },
+        body: file,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      setImageKey(data.imageKey || data.key);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Image upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const imageSrc = mediaUrl(imageKey);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-6 backdrop-blur-[2px]">
-      <div className="w-full max-w-lg rounded-[26px] bg-card p-8 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-[26px] bg-card p-8 shadow-xl">
         <h2 className="font-serif text-[34px]">Edit card</h2>
         <div className="mt-6 space-y-4">
           <Field label="English (front)">
@@ -129,6 +163,36 @@ export function EditCardModal({
               className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
             />
           </Field>
+          <Field label="Image">
+            <div className="space-y-3">
+              {imageSrc ? (
+                <div className="overflow-hidden rounded-[20px] bg-field">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    className="max-h-48 w-full object-contain"
+                  />
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-stone/50 bg-card px-4 py-2 text-[14.5px] font-medium">
+                  {imageKey ? "Replace image" : "Upload image"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => void onImageFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {imageKey ? (
+                  <PillButton variant="ghost" onClick={() => setImageKey(null)}>
+                    Remove
+                  </PillButton>
+                ) : null}
+              </div>
+            </div>
+          </Field>
           <Field label="Deck">
             <select
               value={deckId}
@@ -144,7 +208,7 @@ export function EditCardModal({
           </Field>
           <div className="flex flex-wrap gap-2">
             <PillButton variant="soft" disabled={busy || !term} onClick={generateTts}>
-              {busy ? "Generating…" : "Generate AI voice"}
+              {busy ? "Working…" : "Generate AI voice"}
             </PillButton>
             <PillButton variant="ghost" onClick={recordOverride}>
               Record my voice
@@ -153,10 +217,8 @@ export function EditCardModal({
               <PillButton
                 variant="ghost"
                 onClick={() => {
-                  const url = audioKey.startsWith("data:")
-                    ? audioKey
-                    : `/api/media/${audioKey}`;
-                  void new Audio(url).play();
+                  const url = mediaUrl(audioKey);
+                  if (url) void new Audio(url).play();
                 }}
               >
                 Preview ({audioSource})
@@ -191,6 +253,7 @@ export function EditCardModal({
                   meaning: meaning.trim(),
                   notes: notes.trim(),
                   audioKey,
+                  imageKey,
                   audioSource,
                 });
                 onClose();

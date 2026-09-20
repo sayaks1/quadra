@@ -170,6 +170,11 @@ export function CardsView({
                         — {card.meaning}
                       </span>
                     </span>
+                    {card.imageKey ? (
+                      <span className="hidden shrink-0 text-[11px] uppercase tracking-wide text-stone sm:inline">
+                        img
+                      </span>
+                    ) : null}
                     {global ? (
                       <span className="hidden shrink-0 text-[12px] text-stone sm:inline">
                         {d?.name}

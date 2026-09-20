@@ -103,4 +103,6 @@ export interface ProposedCard {
   meaning: string;
   notes: string;
   language?: Language;
+  imageKey?: string | null;
+  audioKey?: string | null;
 }

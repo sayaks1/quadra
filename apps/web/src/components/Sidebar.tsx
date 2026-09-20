@@ -15,6 +15,7 @@ export function Sidebar() {
   const route = useQuadra((s) => s.route);
   const setRoute = useQuadra((s) => s.setRoute);
   const syncStatus = useQuadra((s) => s.syncStatus);
+  const syncBackend = useQuadra((s) => s.syncBackend);
   const addDeck = useQuadra((s) => s.addDeck);
   const decks = activeDecks(decksRaw);
 
@@ -96,7 +97,15 @@ export function Sidebar() {
         >
           Settings
         </button>
-        <span className="capitalize">{syncStatus === "local" ? "Local" : syncStatus}</span>
+        <span className="capitalize">
+          {syncBackend === "supabase"
+            ? syncStatus === "synced"
+              ? "Cloud"
+              : syncStatus
+            : syncStatus === "local"
+              ? "Local"
+              : syncStatus}
+        </span>
       </div>
     </aside>
   );

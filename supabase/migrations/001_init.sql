@@ -22,7 +22,7 @@ create table if not exists cards (
   image_key text,
   audio_key text,
   audio_source text not null default 'none',
-  fsrs jsonb not null default '{}'::jsonb,
+  anki jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz

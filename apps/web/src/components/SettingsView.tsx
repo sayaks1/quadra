@@ -35,6 +35,8 @@ export function SettingsView() {
   const updateSettings = useQuadra((s) => s.updateSettings);
   const resetDemo = useQuadra((s) => s.resetDemo);
   const setRoute = useQuadra((s) => s.setRoute);
+  const syncStatus = useQuadra((s) => s.syncStatus);
+  const syncBackend = useQuadra((s) => s.syncBackend);
   const anki = settings.anki;
 
   return (
@@ -52,6 +54,21 @@ export function SettingsView() {
       </div>
 
       <div className="max-w-xl space-y-6">
+        <section className="rounded-[20px] bg-card p-6 shadow-sm">
+          <h2 className="text-[14.5px] font-medium">Cloud sync</h2>
+          <p className="mt-1 text-[12px] text-stone">
+            {syncBackend === "supabase"
+              ? "Connected to Supabase. Decks, cards, reviews, and media sync through the server."
+              : "Running locally. Add Supabase keys to apps/web/.env.local and run the migrations in supabase/migrations to enable cloud sync."}
+          </p>
+          <p className="mt-3 text-[13px]">
+            Status:{" "}
+            <span className="font-medium">
+              {syncBackend === "supabase" ? "Supabase" : "Local file"} · {syncStatus}
+            </span>
+          </p>
+        </section>
+
         <section className="rounded-[20px] bg-card p-6 shadow-sm">
           <h2 className="text-[14.5px] font-medium">Learning steps</h2>
           <p className="mt-1 text-[12px] text-stone">

@@ -17,6 +17,7 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
   const [reading, setReading] = useState("");
   const [meaning, setMeaning] = useState("");
   const [notes, setNotes] = useState("");
+  const [imageKey, setImageKey] = useState<string | null>(null);
   const [notesText, setNotesText] = useState("");
   const [proposals, setProposals] = useState<ProposedCard[]>([]);
   const [proposalIndex, setProposalIndex] = useState(0);
@@ -56,13 +57,19 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
       // Persist media to server when possible
       for (const [key, bytes] of Object.entries(result.media)) {
         const name = result.mediaMap[key] || key;
+        const lower = String(name).toLowerCase();
+        const contentType = lower.match(/\.(png|jpe?g|gif|webp|svg)$/)
+          ? `image/${lower.endsWith(".jpg") || lower.endsWith(".jpeg") ? "jpeg" : lower.split(".").pop()}`
+          : lower.endsWith(".mp3")
+            ? "audio/mpeg"
+            : "application/octet-stream";
         await fetch("/api/media/upload", {
           method: "POST",
           headers: {
-            "Content-Type": "application/octet-stream",
+            "Content-Type": contentType,
             "x-filename": name,
           },
-          body: new Blob([bytes.buffer as ArrayBuffer]),
+          body: new Blob([bytes.buffer as ArrayBuffer], { type: contentType }),
         }).catch(() => null);
       }
       const count = importCards(deckId, result.cards, "anki");
@@ -100,7 +107,8 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
       reading: item.reading,
       meaning: item.meaning,
       notes: item.notes,
-      audioKey,
+      audioKey: item.audioKey ?? audioKey,
+      imageKey: item.imageKey ?? null,
       audioSource,
     });
     if (proposalIndex >= proposals.length - 1) {
@@ -178,6 +186,36 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
                 rows={3}
                 className="w-full rounded-[20px] bg-field px-4 py-3 outline-none"
               />
+              <label className="flex cursor-pointer items-center justify-between rounded-[20px] bg-field px-4 py-3 text-[14.5px]">
+                <span className="text-stone">
+                  {imageKey ? `Image attached (${imageKey})` : "Optional image"}
+                </span>
+                <span className="font-medium text-ink">
+                  {imageKey ? "Replace" : "Upload"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const ext = file.name.split(".").pop() || "png";
+                    const filename = `img_new_${Date.now()}.${ext}`;
+                    const res = await fetch("/api/media/upload", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": file.type || "application/octet-stream",
+                        "x-filename": filename,
+                      },
+                      body: file,
+                    });
+                    const data = await res.json();
+                    if (res.ok) setImageKey(data.imageKey || data.key);
+                    else setStatus(data.error || "Image upload failed");
+                  }}
+                />
+              </label>
               <PillButton
                 variant="oxblood"
                 disabled={!term.trim() || !meaning.trim()}
@@ -209,12 +247,14 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
                     meaning: meaning.trim(),
                     notes: notes.trim(),
                     audioKey,
+                    imageKey,
                     audioSource,
                   });
                   setTerm("");
                   setReading("");
                   setMeaning("");
                   setNotes("");
+                  setImageKey(null);
                   setStatus("Card saved");
                 }}
               >

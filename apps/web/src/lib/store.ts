@@ -33,8 +33,10 @@ type QuadraState = QuadraStore & {
   hydrated: boolean;
   route: Route;
   syncStatus: "local" | "synced" | "syncing" | "offline";
+  syncBackend: "local" | "supabase" | "unknown";
   setHydrated: (v: boolean) => void;
   setRoute: (route: Route) => void;
+  setSyncBackend: (backend: "local" | "supabase" | "unknown") => void;
   resetDemo: () => void;
   addDeck: (name: string, language: Language) => string;
   upsertCard: (input: {
@@ -83,8 +85,10 @@ export const useQuadra = create<QuadraState>()(
         hydrated: true,
         route: { name: "today" },
         syncStatus: "local",
+        syncBackend: "unknown",
         setHydrated: (v) => set({ hydrated: v }),
         setRoute: (route) => set({ route }),
+        setSyncBackend: (syncBackend) => set({ syncBackend }),
         resetDemo: () => set({ ...createSeedStore(), route: { name: "today" } }),
         addDeck: (name, language) => {
           const id = newId("deck");
@@ -176,8 +180,8 @@ export const useQuadra = create<QuadraState>()(
             reading: item.reading,
             meaning: item.meaning,
             notes: item.notes,
-            imageKey: null,
-            audioKey: null,
+            imageKey: item.imageKey ?? null,
+            audioKey: item.audioKey ?? null,
             audioSource,
             anki: createInitialAnki(new Date(), config),
             createdAt: now,

@@ -9,6 +9,7 @@ import {
 } from "@quadra/shared";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
+import { mediaUrl } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
 
 export function StudyView({ deckId }: { deckId?: string }) {
@@ -29,13 +30,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const totalSession = doneCount + queue.length;
   const progress = totalSession === 0 ? 1 : doneCount / totalSession;
 
-  const audioUrl = useMemo(() => {
-    if (!current?.audioKey) return null;
-    if (current.audioKey.startsWith("blob:") || current.audioKey.startsWith("data:")) {
-      return current.audioKey;
-    }
-    return `/api/media/${current.audioKey}`;
-  }, [current]);
+  const audioUrl = useMemo(() => mediaUrl(current?.audioKey), [current]);
+  const imageUrl = useMemo(() => mediaUrl(current?.imageKey), [current]);
 
   const playAudio = useCallback(() => {
     if (!current) return;
@@ -228,6 +224,16 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   <PlayIcon />
                 </button>
               </div>
+              {imageUrl ? (
+                <div className="mt-6 overflow-hidden rounded-[16px] bg-field">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="mx-auto max-h-56 w-full object-contain"
+                  />
+                </div>
+              ) : null}
               {current.notes.trim() ? (
                 <ExampleNotes notes={current.notes} />
               ) : null}
