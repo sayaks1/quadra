@@ -13,9 +13,10 @@ export function EditCardModal({
   card: Card | null;
   onClose: () => void;
 }) {
-  const decks = useQuadra((s) => activeDecks(s.decks));
+  const decksRaw = useQuadra((s) => s.decks);
   const upsertCard = useQuadra((s) => s.upsertCard);
   const deleteCard = useQuadra((s) => s.deleteCard);
+  const decks = activeDecks(decksRaw);
 
   const [term, setTerm] = useState("");
   const [reading, setReading] = useState("");

@@ -64,7 +64,7 @@ export const useQuadra = create<QuadraState>()(
       const seed = createSeedStore();
       return {
         ...seed,
-        hydrated: false,
+        hydrated: true,
         route: { name: "today" },
         syncStatus: "local",
         setHydrated: (v) => set({ hydrated: v }),
@@ -184,7 +184,14 @@ export const useQuadra = create<QuadraState>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
+        if (typeof window !== "undefined") {
+          (window as unknown as { __quadra: typeof useQuadra }).__quadra = useQuadra;
+        }
       },
     },
   ),
 );
+
+if (typeof window !== "undefined") {
+  (window as unknown as { __quadra: typeof useQuadra }).__quadra = useQuadra;
+}

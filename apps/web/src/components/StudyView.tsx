@@ -33,7 +33,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
     setQueue(getDue(deckId));
     setRevealed(false);
     setDoneCount(0);
-  }, [deckId, getDue, cards.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
+  }, [deckId, cards.length]);
 
   const current = queue[0];
   const deck = decks.find((d) => d.id === (deckId || current?.deckId));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Card } from "@quadra/shared";
 import { AddFlowModal } from "@/components/AddFlowModal";
 import { CardsView } from "@/components/CardsView";
@@ -10,23 +10,13 @@ import { StatsView } from "@/components/StatsView";
 import { StudyView } from "@/components/StudyView";
 import { TodayView } from "@/components/TodayView";
 import { useQuadra } from "@/lib/store";
-import { Segmented } from "@/components/CardsView";
 
 export function AppShell() {
-  const hydrated = useQuadra((s) => s.hydrated);
   const route = useQuadra((s) => s.route);
   const setRoute = useQuadra((s) => s.setRoute);
-  const setHydrated = useQuadra((s) => s.setHydrated);
   const [editing, setEditing] = useState<Card | null>(null);
   const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    // zustand persist may already have hydrated
-    if (!hydrated) {
-      const t = window.setTimeout(() => setHydrated(true), 50);
-      return () => window.clearTimeout(t);
-    }
-  }, [hydrated, setHydrated]);
+  const syncTimer = useRef<number | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -39,8 +29,6 @@ export function AppShell() {
   }, [route.name, setRoute]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    let timer: number | undefined;
     const unsub = useQuadra.subscribe((state, prev) => {
       if (
         state.decks === prev.decks &&
@@ -49,37 +37,27 @@ export function AppShell() {
       ) {
         return;
       }
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const payload = {
-          decks: state.decks,
-          cards: state.cards,
-          reviews: state.reviews,
-          version: state.version,
-        };
-        useQuadra.setState({ syncStatus: "syncing" });
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(() => {
+        const { decks, cards, reviews, version } = useQuadra.getState();
         void fetch("/api/store", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ decks, cards, reviews, version }),
         })
-          .then(() => useQuadra.setState({ syncStatus: "synced" }))
+          .then(() => {
+            if (useQuadra.getState().syncStatus !== "synced") {
+              useQuadra.setState({ syncStatus: "synced" });
+            }
+          })
           .catch(() => useQuadra.setState({ syncStatus: "offline" }));
-      }, 500);
+      }, 600);
     });
     return () => {
-      window.clearTimeout(timer);
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
       unsub();
     };
-  }, [hydrated]);
-
-  if (!hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-field text-stone">
-        Loading Quadra…
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-field p-4 md:p-6">
@@ -106,7 +84,7 @@ export function AppShell() {
           ) : null}
           {route.name === "study" ? <StudyView deckId={route.deckId} /> : null}
           {route.name === "deck" && route.tab === "cards" ? (
-            <DeckCards
+            <CardsView
               deckId={route.deckId}
               onEdit={setEditing}
               onOpenAdd={() => setAdding(true)}
@@ -122,33 +100,6 @@ export function AppShell() {
       </div>
       <EditCardModal card={editing} onClose={() => setEditing(null)} />
       {adding ? <AddFlowModal onClose={() => setAdding(false)} /> : null}
-    </div>
-  );
-}
-
-function DeckCards({
-  deckId,
-  onEdit,
-  onOpenAdd,
-}: {
-  deckId: string;
-  onEdit: (c: Card) => void;
-  onOpenAdd: () => void;
-}) {
-  const setRoute = useQuadra((s) => s.setRoute);
-  return (
-    <div className="relative h-full">
-      <CardsView deckId={deckId} onEdit={onEdit} onOpenAdd={onOpenAdd} />
-      {/* Ensure segment study navigates to study route */}
-      <div className="pointer-events-none absolute right-[9.5rem] top-8 hidden">
-        <Segmented
-          value="cards"
-          onChange={(tab) => {
-            if (tab === "study") setRoute({ name: "study", deckId });
-            else setRoute({ name: "deck", deckId, tab });
-          }}
-        />
-      </div>
     </div>
   );
 }

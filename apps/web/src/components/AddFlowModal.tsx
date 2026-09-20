@@ -7,9 +7,10 @@ import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
 
 export function AddFlowModal({ onClose }: { onClose: () => void }) {
-  const decks = useQuadra((s) => activeDecks(s.decks));
+  const decksRaw = useQuadra((s) => s.decks);
   const upsertCard = useQuadra((s) => s.upsertCard);
   const importCards = useQuadra((s) => s.importCards);
+  const decks = activeDecks(decksRaw);
   const [tab, setTab] = useState<"manual" | "anki" | "ai">("manual");
   const [deckId, setDeckId] = useState(decks[0]?.id ?? "");
   const [term, setTerm] = useState("");

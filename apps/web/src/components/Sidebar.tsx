@@ -10,12 +10,13 @@ import { useQuadra } from "@/lib/store";
 import { cn } from "@/lib/cn";
 
 export function Sidebar() {
-  const decks = useQuadra((s) => activeDecks(s.decks));
+  const decksRaw = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const route = useQuadra((s) => s.route);
   const setRoute = useQuadra((s) => s.setRoute);
   const syncStatus = useQuadra((s) => s.syncStatus);
   const addDeck = useQuadra((s) => s.addDeck);
+  const decks = activeDecks(decksRaw);
 
   const selectedDeckId = route.name === "deck" || route.name === "study" ? route.deckId : undefined;
 

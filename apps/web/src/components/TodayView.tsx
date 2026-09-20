@@ -11,10 +11,11 @@ import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
 
 export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
-  const decks = useQuadra((s) => activeDecks(s.decks));
+  const decksRaw = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const reviews = useQuadra((s) => s.reviews);
   const setRoute = useQuadra((s) => s.setRoute);
+  const decks = activeDecks(decksRaw);
   const due = dueCards(cards);
   const answered = answeredToday(reviews);
   const streak = Math.min(9, Math.max(1, Math.floor(answered / 5) + 3));
@@ -36,6 +37,7 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
           </PillButton>
           <PillButton
             variant="oxblood"
+            data-testid="study-all"
             onClick={() => setRoute({ name: "study" })}
             disabled={due.length === 0}
           >
