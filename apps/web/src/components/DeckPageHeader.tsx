@@ -4,7 +4,12 @@ import { PillButton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuadra } from "@/lib/store";
 
-/** Shared deck page chrome: Cards|Stats tabs, Study CTA, fixed-width secondary action */
+/**
+ * Shared deck page chrome.
+ * Study is a page-level action (full view change), so it sits with the title —
+ * not inside the Cards|Stats tabs. Add card / Export share a fixed width so
+ * switching tabs does not shift the header.
+ */
 export function DeckPageHeader({
   deckId,
   title,
@@ -22,19 +27,20 @@ export function DeckPageHeader({
 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="font-serif text-[34px]">{title}</h1>
-      <div className="flex flex-wrap items-center gap-2">
-        <DeckTabs
-          value={tab}
-          onChange={(next) => setRoute({ name: "deck", deckId, tab: next })}
-        />
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <h1 className="font-serif text-[34px]">{title}</h1>
         <PillButton
           variant="oxblood"
           onClick={() => setRoute({ name: "study", deckId })}
         >
           Study
         </PillButton>
-        {/* Fixed width so Add card ↔ Export doesn’t shift the header */}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DeckTabs
+          value={tab}
+          onChange={(next) => setRoute({ name: "deck", deckId, tab: next })}
+        />
         <PillButton
           variant="ghost"
           className="w-[7.5rem] shrink-0"
