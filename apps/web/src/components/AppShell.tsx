@@ -21,13 +21,33 @@ export function AppShell() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && route.name === "study") {
-        setRoute({ name: "today" });
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "Escape") {
+        if (route.name === "study") setRoute({ name: "today" });
+        else if (route.name === "settings") setRoute({ name: "today" });
+      }
+      // Start study from Today / deck home
+      if (
+        (e.key === "s" || e.key === "S") &&
+        (route.name === "today" || (route.name === "deck" && route.tab !== "study"))
+      ) {
+        e.preventDefault();
+        if (route.name === "deck") setRoute({ name: "study", deckId: route.deckId });
+        else setRoute({ name: "study" });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [route.name, setRoute]);
+  }, [route, setRoute]);
 
   useEffect(() => {
     const unsub = useQuadra.subscribe((state, prev) => {

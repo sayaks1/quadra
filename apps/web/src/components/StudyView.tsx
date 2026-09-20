@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { deckStats, shouldRequeueInSession, type Card } from "@quadra/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  deckStats,
+  shouldRequeueInSession,
+  type Card,
+  type Rating,
+} from "@quadra/shared";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
@@ -18,24 +23,6 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const [doneCount, setDoneCount] = useState(0);
   const [startedAt] = useState(() => Date.now());
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.code === "Space" && !revealed) {
-        e.preventDefault();
-        setRevealed(true);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [revealed]);
-
-  useEffect(() => {
-    setQueue(getDue(deckId));
-    setRevealed(false);
-    setDoneCount(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
-  }, [deckId, cards.length]);
-
   const current = queue[0];
   const deck = decks.find((d) => d.id === (deckId || current?.deckId));
   const stats = deck ? deckStats(cards, deck.id) : null;
@@ -49,6 +36,98 @@ export function StudyView({ deckId }: { deckId?: string }) {
     }
     return `/api/media/${current.audioKey}`;
   }, [current]);
+
+  const playAudio = useCallback(() => {
+    if (!current) return;
+    if (audioUrl) {
+      void new Audio(audioUrl).play();
+    } else {
+      void speakFallback(current.term, deck?.language);
+    }
+  }, [audioUrl, current, deck?.language]);
+
+  const handleRate = useCallback(
+    (rating: Rating) => {
+      if (!current) return;
+      const updated = rateCard(current.id, rating);
+      setDoneCount((n) => n + 1);
+      setRevealed(false);
+      setQueue((q) => {
+        const rest = q.slice(1);
+        if (updated && shouldRequeueInSession(updated)) {
+          return [...rest, updated];
+        }
+        return rest;
+      });
+    },
+    [current, rateCard],
+  );
+
+  useEffect(() => {
+    setQueue(getDue(deckId));
+    setRevealed(false);
+    setDoneCount(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
+  }, [deckId, cards.length]);
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      return (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target.isContentEditable
+      );
+    }
+
+    function onKey(e: KeyboardEvent) {
+      if (isTypingTarget(e.target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!current) return;
+
+      // Audio
+      if (e.key === "a" || e.key === "A" || e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        playAudio();
+        return;
+      }
+
+      if (!revealed) {
+        if (e.code === "Space" || e.key === "Enter") {
+          e.preventDefault();
+          setRevealed(true);
+        }
+        return;
+      }
+
+      // Anki-style rating keys (top row + numpad)
+      if (e.code === "Numpad1" || e.key === "1") {
+        e.preventDefault();
+        handleRate("again");
+        return;
+      }
+      if (e.code === "Numpad2" || e.key === "2") {
+        e.preventDefault();
+        handleRate("hard");
+        return;
+      }
+      if (e.code === "Numpad3" || e.key === "3") {
+        e.preventDefault();
+        handleRate("good");
+        return;
+      }
+      if (e.code === "Numpad4" || e.key === "4") {
+        e.preventDefault();
+        handleRate("easy");
+        return;
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [current, revealed, handleRate, playAudio]);
 
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
@@ -110,18 +189,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
                   : `Review · seen ${current.anki.reps} times`}
             </span>
-            <button
-              type="button"
-              className="hover:text-ink"
-              onClick={() => {
-                if (audioUrl) {
-                  void new Audio(audioUrl).play();
-                } else {
-                  void speakFallback(current.term, deck?.language);
-                }
-              }}
-            >
-              Play audio
+            <button type="button" className="hover:text-ink" onClick={playAudio}>
+              Play audio <kbd className="ml-1 rounded bg-field px-1.5 py-0.5 text-[11px]">A</kbd>
             </button>
           </div>
           <div className="font-serif text-[34px] leading-snug">{current.term}</div>
@@ -150,9 +219,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
               >
                 Show answer
               </PillButton>
-              <div className="mt-4 flex justify-center gap-4 text-[12px] text-stone">
+              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> reveal
+                  <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> /{" "}
+                  <kbd className="rounded bg-card px-1.5 py-0.5">Enter</kbd> reveal
+                </span>
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">A</kbd> audio
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
@@ -160,22 +233,26 @@ export function StudyView({ deckId }: { deckId?: string }) {
               </div>
             </div>
           ) : (
-            <RatingBar
-              card={current}
-              onRate={(rating) => {
-                const updated = rateCard(current.id, rating);
-                setDoneCount((n) => n + 1);
-                setRevealed(false);
-                setQueue((q) => {
-                  const rest = q.slice(1);
-                  if (updated && shouldRequeueInSession(updated)) {
-                    // Anki-style: keep learning/relearning cards in session until graduated to day+
-                    return [...rest, updated];
-                  }
-                  return rest;
-                });
-              }}
-            />
+            <>
+              <RatingBar card={current} onRate={handleRate} showKeys />
+              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">1</kbd> Again
+                </span>
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">2</kbd> Hard
+                </span>
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">3</kbd> Good
+                </span>
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">4</kbd> Easy
+                </span>
+                <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
+                </span>
+              </div>
+            </>
           )}
         </div>
       </div>

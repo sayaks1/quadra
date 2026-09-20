@@ -15,14 +15,22 @@ export function RatingBar({
   card,
   onRate,
   round = false,
+  showKeys = false,
 }: {
   card: Card;
   onRate: (rating: Rating) => void;
   round?: boolean;
+  showKeys?: boolean;
 }) {
   const config = useQuadra((s) => s.settings.anki);
   const now = new Date();
   const intervals = previewIntervals(card, now, config);
+  const keyByRating: Record<Rating, string> = {
+    again: "1",
+    hard: "2",
+    good: "3",
+    easy: "4",
+  };
 
   return (
     <div className={cn("grid grid-cols-4 gap-2", round && "gap-3")}>
@@ -42,6 +50,16 @@ export function RatingBar({
               primary ? "bg-oxblood text-white" : "bg-card text-ink shadow-sm",
             )}
           >
+            {showKeys ? (
+              <span
+                className={cn(
+                  "mb-0.5 text-[11px] font-medium",
+                  primary ? "text-white/70" : "text-stone",
+                )}
+              >
+                {keyByRating[key]}
+              </span>
+            ) : null}
             {round ? (
               <>
                 <span className="text-[13px] font-medium">{label}</span>
