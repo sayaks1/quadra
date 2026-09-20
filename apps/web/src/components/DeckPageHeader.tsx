@@ -6,9 +6,8 @@ import { useQuadra } from "@/lib/store";
 
 /**
  * Shared deck page chrome.
- * Study is a page-level action (full view change), so it sits with the title —
- * not inside the Cards|Stats tabs. Add card / Export share a fixed width so
- * switching tabs does not shift the header.
+ * Study leaves the page entirely, so it is a standalone CTA — not a Cards|Stats
+ * tab, and not glued to the title. Add card / Export share a fixed width.
  */
 export function DeckPageHeader({
   deckId,
@@ -26,17 +25,17 @@ export function DeckPageHeader({
   const setRoute = useQuadra((s) => s.setRoute);
 
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <h1 className="font-serif text-[34px]">{title}</h1>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <h1 className="min-w-0 font-serif text-[34px] font-normal tracking-tight">
+        {title}
+      </h1>
+      <div className="flex flex-wrap items-center gap-2">
         <PillButton
           variant="oxblood"
           onClick={() => setRoute({ name: "study", deckId })}
         >
           Study
         </PillButton>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <DeckTabs
           value={tab}
           onChange={(next) => setRoute({ name: "deck", deckId, tab: next })}

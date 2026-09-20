@@ -5,7 +5,9 @@ import "./globals.css";
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  // Variable so we can dial SOFT/WONK down — Soft defaults make a goopy ball-terminal J
+  weight: "variable",
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
 const interTight = Inter_Tight({

@@ -41,6 +41,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Sharp Fraunces: no soft/wonky display alternates (cleaner J, n, etc.) */
+.font-serif {
+  font-variation-settings: "SOFT" 0, "WONK" 0, "opsz" 48;
+}
+
 button,
 input,
 textarea,
