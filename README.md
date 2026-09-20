@@ -29,12 +29,11 @@ Works offline with local seed decks (no API keys required). Progress is saved in
 Without keys, Quadra stays on the local file store. To enable real cloud sync:
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In the SQL editor, run:
-   - `supabase/migrations/001_init.sql`
-   - `supabase/migrations/002_anki_settings_media.sql`
+2. In the SQL editor, run **`supabase/setup.sql`** (one shot).
 3. Copy `.env.example` → `apps/web/.env.local` and set:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY` (Settings → API → `service_role`)
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`)
+   - Optional: `SUPABASE_SECRET_KEY` (`sb_secret_…`) for elevated server sync
 4. Restart `pnpm dev:web`.
 
 The sidebar shows **Cloud** when Supabase is connected. Decks, cards, Anki progress, reviews, settings, and media (audio + images) sync through `/api/store` and `/api/media`.
