@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Quadra",
+    "slug": "quadra",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E9E9E6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.quadra.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Record your own pronunciation for flashcards."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E9E9E6",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

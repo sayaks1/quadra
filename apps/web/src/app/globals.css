@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+:root {
+  --field: #e9e9e6;
+  --card: #fbfbfa;
+  --oxblood: #6e2f2f;
+  --stone: #b5b2a9;
+  --ink: #1c1b1a;
+  --radius-shell: 26px;
+  --radius-card: 20px;
+  --font-serif: var(--font-fraunces), "Noto Serif JP", "Noto Serif KR", "Noto Serif SC", serif;
+  --font-sans: var(--font-inter-tight), "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-field: var(--field);
+  --color-card: var(--card);
+  --color-oxblood: var(--oxblood);
+  --color-stone: var(--stone);
+  --color-ink: var(--ink);
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --radius-shell: var(--radius-shell);
+  --radius-card: var(--radius-card);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--oxblood) 22%, white);
+}

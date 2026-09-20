@@ -1,0 +1,33 @@
+{
+  "name": "@quadra/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 43127 --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --port 43127 --hostname 0.0.0.0",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@quadra/shared": "workspace:*",
+    "clsx": "^2.1.1",
+    "jszip": "^3.10.1",
+    "next": "16.3.5",
+    "openai": "^4.104.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sql.js": "^1.13.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/sql.js": "^1.4.9",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
