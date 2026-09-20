@@ -1,5 +1,6 @@
-import type { Card, Deck, Rating } from "./types";
-import { isDue } from "./fsrs";
+import { isDue } from "./anki";
+import type { AnkiConfig, Card, Deck, Rating } from "./types";
+import { DEFAULT_ANKI_CONFIG } from "./types";
 
 export function activeCards(cards: Card[]) {
   return cards.filter((c) => !c.deletedAt);
@@ -13,11 +14,16 @@ export function cardsForDeck(cards: Card[], deckId: string) {
   return activeCards(cards).filter((c) => c.deckId === deckId);
 }
 
-export function dueCards(cards: Card[], now = new Date(), deckId?: string) {
+export function dueCards(
+  cards: Card[],
+  now = new Date(),
+  deckId?: string,
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+) {
   return activeCards(cards)
     .filter((c) => (deckId ? c.deckId === deckId : true))
-    .filter((c) => isDue(c, now))
-    .sort((a, b) => new Date(a.fsrs.due).getTime() - new Date(b.fsrs.due).getTime());
+    .filter((c) => isDue(c, now, config, { learnAhead: true }))
+    .sort((a, b) => new Date(a.anki.due).getTime() - new Date(b.anki.due).getTime());
 }
 
 export function cardsAddedToday(cards: Card[], now = new Date()) {
@@ -39,10 +45,12 @@ export function searchCards(cards: Card[], query: string) {
 
 export function deckStats(cards: Card[], deckId: string, now = new Date()) {
   const list = cardsForDeck(cards, deckId);
-  const neu = list.filter((c) => c.fsrs.state === "new" && c.fsrs.reps === 0).length;
-  const learning = list.filter((c) => c.fsrs.state === "learning" || c.fsrs.state === "relearning").length;
+  const neu = list.filter((c) => c.anki.phase === "new" || (c.anki.phase === "learning" && c.anki.reps === 0)).length;
+  const learning = list.filter(
+    (c) => c.anki.phase === "learning" || c.anki.phase === "relearning",
+  ).length;
   const due = dueCards(list, now).length;
-  const mature = list.filter((c) => c.fsrs.state === "review" && c.fsrs.stability >= 21).length;
+  const mature = list.filter((c) => c.anki.phase === "review" && c.anki.intervalDays >= 21).length;
   return { total: list.length, neu, learning, due, mature };
 }
 

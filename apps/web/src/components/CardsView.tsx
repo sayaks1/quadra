@@ -111,11 +111,12 @@ export function CardsView({
               const d = decks.find((x) => x.id === card.deckId);
               const status = cardStatusLabel(card);
               const dot =
-                card.fsrs.state === "new" && card.fsrs.reps === 0
+                card.anki.phase === "new" ||
+                (card.anki.phase === "learning" && card.anki.reps === 0)
                   ? "empty"
                   : status === "new"
                     ? "empty"
-                    : card.fsrs.state === "learning"
+                    : card.anki.phase === "learning" || card.anki.phase === "relearning"
                       ? "oxblood"
                       : "stone";
               return (

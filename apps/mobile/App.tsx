@@ -13,16 +13,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   applyRating,
   createSeedStore,
+  DEFAULT_ANKI_CONFIG,
   dueCards,
   formatInterval,
   previewIntervals,
+  shouldRequeueInSession,
   type Card,
   type QuadraStore,
   type Rating,
 } from "@quadra/shared";
 
 const API = process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:43127";
-const STORAGE_KEY = "quadra-mobile-v1";
+const STORAGE_KEY = "quadra-mobile-v2";
 
 type Screen = "home" | "study";
 
@@ -45,7 +47,17 @@ export default function App() {
     void (async () => {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
-        setStore(JSON.parse(raw) as QuadraStore);
+        const parsed = JSON.parse(raw) as QuadraStore;
+        if (!parsed.settings) {
+          parsed.settings = {
+            anki: {
+              ...DEFAULT_ANKI_CONFIG,
+              learningSteps: [...DEFAULT_ANKI_CONFIG.learningSteps],
+              relearningSteps: [...DEFAULT_ANKI_CONFIG.relearningSteps],
+            },
+          };
+        }
+        setStore(parsed);
       } else {
         setStore(createSeedStore());
       }
@@ -54,6 +66,15 @@ export default function App() {
         if (res.ok) {
           const remote = (await res.json()) as QuadraStore;
           if (remote.cards?.length) {
+            if (!remote.settings) {
+              remote.settings = {
+                anki: {
+                  ...DEFAULT_ANKI_CONFIG,
+                  learningSteps: [...DEFAULT_ANKI_CONFIG.learningSteps],
+                  relearningSteps: [...DEFAULT_ANKI_CONFIG.relearningSteps],
+                },
+              };
+            }
             setStore(remote);
             setSyncLabel("Synced");
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
@@ -80,9 +101,10 @@ export default function App() {
     return () => clearTimeout(t);
   }, [store]);
 
+  const config = store?.settings?.anki ?? DEFAULT_ANKI_CONFIG;
   const due = useMemo(
-    () => (store ? dueCards(store.cards) : []),
-    [store],
+    () => (store ? dueCards(store.cards, new Date(), undefined, config) : []),
+    [store, config],
   );
 
   if (!store) {
@@ -113,9 +135,9 @@ export default function App() {
     }
 
     const now = new Date();
-    const intervals = previewIntervals(current, now);
+    const intervals = previewIntervals(current, now, config);
     const rate = (rating: Rating) => {
-      const updated = applyRating(current, rating, now);
+      const updated = applyRating(current, rating, now, config);
       setStore({
         ...store,
         cards: store.cards.map((c) => (c.id === current.id ? updated : c)),
@@ -126,11 +148,15 @@ export default function App() {
             cardId: current.id,
             rating,
             reviewedAt: now.toISOString(),
-            scheduledDays: updated.fsrs.scheduled_days,
+            scheduledDays: updated.anki.intervalDays,
           },
         ],
       });
-      setQueue((q) => q.slice(1));
+      setQueue((q) => {
+        const rest = q.slice(1);
+        if (shouldRequeueInSession(updated)) return [...rest, updated];
+        return rest;
+      });
       setRevealed(false);
     };
 
@@ -139,18 +165,7 @@ export default function App() {
         <StatusBar style="dark" />
         <View style={{ paddingHorizontal: 20, paddingTop: 12, flex: 1 }}>
           <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${Math.max(
-                    8,
-                    ((due.length - queue.length + 1) / Math.max(1, due.length)) *
-                      100,
-                  )}%`,
-                },
-              ]}
-            />
+            <View style={[styles.progressFill, { width: "40%" }]} />
           </View>
           <View style={styles.rowBetween}>
             <Text style={styles.serifSmall}>
@@ -161,7 +176,11 @@ export default function App() {
 
           <View style={styles.studyCard}>
             <Text style={styles.caption}>
-              {current.fsrs.reps === 0 ? "New" : `Review · seen ${current.fsrs.reps} times`}
+              {current.anki.phase === "learning" || current.anki.phase === "relearning"
+                ? `Learning · step ${current.anki.learningStep + 1}`
+                : current.anki.reps === 0
+                  ? "New"
+                  : `Review · seen ${current.anki.reps} times`}
             </Text>
             <Text style={styles.cardTerm}>{current.term}</Text>
             {revealed ? (
@@ -205,10 +224,7 @@ export default function App() {
                       ]}
                     >
                       <Text
-                        style={[
-                          styles.rateLabel,
-                          primary && { color: "#fff" },
-                        ]}
+                        style={[styles.rateLabel, primary && { color: "#fff" }]}
                       >
                         {label}
                       </Text>
@@ -218,7 +234,7 @@ export default function App() {
                           primary && { color: "rgba(255,255,255,0.8)" },
                         ]}
                       >
-                        {formatInterval(now, intervals[key])}
+                        {formatInterval(now, new Date(intervals[key]))}
                       </Text>
                     </Pressable>
                   );
@@ -255,13 +271,13 @@ export default function App() {
           {store.decks
             .filter((d) => !d.deletedAt)
             .map((deck) => {
-              const count = dueCards(store.cards, new Date(), deck.id).length;
+              const count = dueCards(store.cards, new Date(), deck.id, config).length;
               return (
                 <Pressable
                   key={deck.id}
                   style={styles.deckRow}
                   onPress={() => {
-                    setQueue(dueCards(store.cards, new Date(), deck.id));
+                    setQueue(dueCards(store.cards, new Date(), deck.id, config));
                     setRevealed(false);
                     setScreen("study");
                   }}
@@ -278,7 +294,7 @@ export default function App() {
         <Pressable
           style={[styles.pill, styles.pillDark, { width: "100%" }]}
           onPress={() => {
-            setQueue(dueCards(store.cards));
+            setQueue(dueCards(store.cards, new Date(), undefined, config));
             setRevealed(false);
             setScreen("study");
           }}

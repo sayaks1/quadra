@@ -105,10 +105,6 @@ importers:
         version: 5.9.3
 
   packages/shared:
-    dependencies:
-      ts-fsrs:
-        specifier: ^4.7.1
-        version: 4.7.1
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -3747,10 +3743,6 @@ packages:
     engines: {node: '>=18.12'}
     peerDependencies:
       typescript: '>=4.8.4'
-
-  ts-fsrs@4.7.1:
-    resolution: {integrity: sha512-uYqKbSCNWLRPT0PfqFFy2rn0YuYz2fKmtgpgHOBd5/DP14oj6diG7P271AwJ8iGrKnmIspzXCF+nTKxict+Lcg==}
-    engines: {node: '>=18.0.0'}
 
   tsconfig-paths@3.15.0:
     resolution: {integrity: sha512-2Ac2RgzDe/cn48GvOe3M+o82pEFewD3UPbyoUHHdKasHwJKjds4fLXWf/Ux5kATBKN20oaFGu+jbElp1pos0mg==}
@@ -8345,8 +8337,6 @@ snapshots:
   ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
-
-  ts-fsrs@4.7.1: {}
 
   tsconfig-paths@3.15.0:
     dependencies:

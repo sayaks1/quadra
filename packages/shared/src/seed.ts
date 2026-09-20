@@ -1,5 +1,6 @@
-import { createInitialFsrs } from "./fsrs";
+import { createInitialAnki } from "./anki";
 import type { Card, Deck, QuadraStore } from "./types";
+import { DEFAULT_ANKI_CONFIG } from "./types";
 
 function id(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
@@ -31,7 +32,9 @@ export function createSeedStore(now = new Date()): QuadraStore {
     },
   ];
 
-  const samples: Array<Omit<Card, "fsrs" | "createdAt" | "updatedAt" | "id" | "audioSource"> & { id: string }> = [
+  const samples: Array<
+    Omit<Card, "anki" | "createdAt" | "updatedAt" | "id" | "audioSource"> & { id: string }
+  > = [
     {
       id: "card_hanabi",
       deckId: "deck_ja",
@@ -126,30 +129,36 @@ export function createSeedStore(now = new Date()): QuadraStore {
 
   const cards: Card[] = samples.map((s, index) => {
     const created = new Date(now.getTime() - index * 3600_000).toISOString();
-    const fsrs = createInitialFsrs(now);
-    // Mix some learning state for demo realism
+    const anki = createInitialAnki(now);
     if (index % 3 === 1) {
-      fsrs.state = "learning";
-      fsrs.reps = 2;
-      fsrs.due = new Date(now.getTime() - 60_000).toISOString();
+      anki.phase = "learning";
+      anki.learningStep = 0;
+      anki.reps = 1;
+      anki.due = new Date(now.getTime() - 60_000).toISOString();
     } else if (index % 3 === 2) {
-      fsrs.state = "review";
-      fsrs.reps = 6;
-      fsrs.stability = 11;
-      fsrs.scheduled_days = 11;
-      fsrs.due = new Date(now.getTime() - 120_000).toISOString();
-      fsrs.last_review = new Date(now.getTime() - 11 * 86400_000).toISOString();
+      anki.phase = "review";
+      anki.reps = 6;
+      anki.intervalDays = 11;
+      anki.ease = 2.5;
+      anki.due = new Date(now.getTime() - 120_000).toISOString();
+      anki.lastReview = new Date(now.getTime() - 11 * 86400_000).toISOString();
     }
     return {
       ...s,
-      audioSource: "none",
-      fsrs,
+      audioSource: "none" as const,
+      anki,
       createdAt: created,
       updatedAt: created,
     };
   });
 
-  return { decks, cards, reviews: [], version: 1 };
+  return {
+    decks,
+    cards,
+    reviews: [],
+    settings: { anki: { ...DEFAULT_ANKI_CONFIG, learningSteps: [...DEFAULT_ANKI_CONFIG.learningSteps], relearningSteps: [...DEFAULT_ANKI_CONFIG.relearningSteps] } },
+    version: 2,
+  };
 }
 
 export function newId(prefix: string) {

@@ -2,6 +2,7 @@
 
 import { formatInterval, previewIntervals, type Card, type Rating } from "@quadra/shared";
 import { cn } from "@/lib/cn";
+import { useQuadra } from "@/lib/store";
 
 const labels: { key: Rating; label: string }[] = [
   { key: "again", label: "Again" },
@@ -19,13 +20,14 @@ export function RatingBar({
   onRate: (rating: Rating) => void;
   round?: boolean;
 }) {
+  const config = useQuadra((s) => s.settings.anki);
   const now = new Date();
-  const intervals = previewIntervals(card, now);
+  const intervals = previewIntervals(card, now, config);
 
   return (
     <div className={cn("grid grid-cols-4 gap-2", round && "gap-3")}>
       {labels.map(({ key, label }) => {
-        const text = formatInterval(now, intervals[key]);
+        const text = formatInterval(now, new Date(intervals[key]));
         const primary = key === "good";
         return (
           <button

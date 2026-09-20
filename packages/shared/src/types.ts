@@ -2,7 +2,8 @@ export type Language = "ko" | "ja" | "zh" | "en" | "other";
 
 export type AudioSource = "tts" | "anki" | "user" | "none";
 
-export type CardState = "new" | "learning" | "review" | "relearning";
+/** Anki-style card phase */
+export type CardPhase = "new" | "learning" | "review" | "relearning";
 
 export interface Deck {
   id: string;
@@ -13,16 +14,19 @@ export interface Deck {
   deletedAt?: string | null;
 }
 
-export interface FsrsState {
+/** Anki SM-2 + learning steps state (not FSRS) */
+export interface AnkiState {
+  phase: CardPhase;
   due: string;
-  stability: number;
-  difficulty: number;
-  elapsed_days: number;
-  scheduled_days: number;
+  /** Review interval in days (Anki `ivl`) */
+  intervalDays: number;
+  /** Ease factor, default 2.5 (Anki `factor` / 1000) */
+  ease: number;
   reps: number;
   lapses: number;
-  state: CardState;
-  last_review?: string | null;
+  /** Index into learningSteps / relearningSteps */
+  learningStep: number;
+  lastReview?: string | null;
 }
 
 export interface Card {
@@ -35,7 +39,7 @@ export interface Card {
   imageKey?: string | null;
   audioKey?: string | null;
   audioSource: AudioSource;
-  fsrs: FsrsState;
+  anki: AnkiState;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -51,10 +55,45 @@ export interface ReviewLog {
   scheduledDays: number;
 }
 
+/** Deck/app scheduling options — Anki defaults */
+export interface AnkiConfig {
+  /** Learning steps in seconds, e.g. [60, 600] = 1m, 10m */
+  learningSteps: number[];
+  /** Relearning steps after a lapse */
+  relearningSteps: number[];
+  graduatingInterval: number;
+  easyInterval: number;
+  startingEase: number;
+  easyBonus: number;
+  hardInterval: number;
+  intervalModifier: number;
+  minimumInterval: number;
+  /** When no other cards are due, show learning cards up to this many seconds early */
+  learnAheadSeconds: number;
+}
+
+export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
+  learningSteps: [60, 600],
+  relearningSteps: [600],
+  graduatingInterval: 1,
+  easyInterval: 4,
+  startingEase: 2.5,
+  easyBonus: 1.3,
+  hardInterval: 1.2,
+  intervalModifier: 1.0,
+  minimumInterval: 1,
+  learnAheadSeconds: 20 * 60,
+};
+
+export interface QuadraSettings {
+  anki: AnkiConfig;
+}
+
 export interface QuadraStore {
   decks: Deck[];
   cards: Card[];
   reviews: ReviewLog[];
+  settings: QuadraSettings;
   version: number;
 }
 

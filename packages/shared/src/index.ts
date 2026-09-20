@@ -1,4 +1,4 @@
 export * from "./types";
-export * from "./fsrs";
+export * from "./anki";
 export * from "./seed";
 export * from "./queries";

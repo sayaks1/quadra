@@ -44,7 +44,7 @@ export function StatsView({
       const next = new Date(day);
       next.setDate(next.getDate() + 1);
       const count = list.filter((c) => {
-        const due = new Date(c.fsrs.due);
+        const due = new Date(c.anki.due);
         return due >= day && due < next;
       }).length;
       return { offset, count };
@@ -53,7 +53,7 @@ export function StatsView({
 
   const maxBar = Math.max(1, ...fortnight.map((d) => d.count));
   const young = list.filter(
-    (c) => c.fsrs.state === "review" && c.fsrs.stability < 21,
+    (c) => c.anki.phase === "review" && c.anki.intervalDays < 21,
   ).length;
 
   if (!deck) return null;

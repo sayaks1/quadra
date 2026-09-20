@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { StatsView } from "@/components/StatsView";
 import { StudyView } from "@/components/StudyView";
 import { TodayView } from "@/components/TodayView";
+import { SettingsView } from "@/components/SettingsView";
 import { useQuadra } from "@/lib/store";
 
 export function AppShell() {
@@ -39,11 +40,11 @@ export function AppShell() {
       }
       if (syncTimer.current) window.clearTimeout(syncTimer.current);
       syncTimer.current = window.setTimeout(() => {
-        const { decks, cards, reviews, version } = useQuadra.getState();
+        const { decks, cards, reviews, settings, version } = useQuadra.getState();
         void fetch("/api/store", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decks, cards, reviews, version }),
+          body: JSON.stringify({ decks, cards, reviews, settings, version }),
         })
           .then(() => {
             if (useQuadra.getState().syncStatus !== "synced") {
@@ -67,6 +68,7 @@ export function AppShell() {
           {route.name === "today" ? (
             <TodayView onOpenAdd={() => setAdding(true)} />
           ) : null}
+          {route.name === "settings" ? <SettingsView /> : null}
           {route.name === "added-today" ? (
             <CardsView
               addedTodayOnly

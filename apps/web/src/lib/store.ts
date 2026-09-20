@@ -5,15 +5,18 @@ import { persist } from "zustand/middleware";
 import {
   applyRating,
   cardsAddedToday,
-  createInitialFsrs,
+  createInitialAnki,
   createSeedStore,
+  DEFAULT_ANKI_CONFIG,
   dueCards,
   newId,
   searchCards,
+  type AnkiConfig,
   type Card,
   type Deck,
   type Language,
   type ProposedCard,
+  type QuadraSettings,
   type QuadraStore,
   type Rating,
   type ReviewLog,
@@ -24,7 +27,8 @@ export type Route =
   | { name: "search"; query?: string }
   | { name: "added-today" }
   | { name: "deck"; deckId: string; tab: "study" | "cards" | "stats" }
-  | { name: "study"; deckId?: string };
+  | { name: "study"; deckId?: string }
+  | { name: "settings" };
 
 type QuadraState = QuadraStore & {
   hydrated: boolean;
@@ -46,9 +50,11 @@ type QuadraState = QuadraStore & {
     imageKey?: string | null;
   }) => string;
   deleteCard: (id: string) => void;
-  rateCard: (id: string, rating: Rating) => void;
+  /** Returns the updated card after rating */
+  rateCard: (id: string, rating: Rating) => Card | null;
   importCards: (deckId: string, cards: ProposedCard[], audioSource?: Card["audioSource"]) => number;
   replaceStore: (store: QuadraStore) => void;
+  updateSettings: (partial: { anki?: Partial<AnkiConfig> }) => void;
   getDue: (deckId?: string) => Card[];
   getAddedToday: () => Card[];
   search: (q: string) => Card[];
@@ -58,12 +64,23 @@ function touch() {
   return new Date().toISOString();
 }
 
+function defaultSettings(): QuadraSettings {
+  return {
+    anki: {
+      ...DEFAULT_ANKI_CONFIG,
+      learningSteps: [...DEFAULT_ANKI_CONFIG.learningSteps],
+      relearningSteps: [...DEFAULT_ANKI_CONFIG.relearningSteps],
+    },
+  };
+}
+
 export const useQuadra = create<QuadraState>()(
   persist(
     (set, get) => {
       const seed = createSeedStore();
       return {
         ...seed,
+        settings: seed.settings ?? defaultSettings(),
         hydrated: true,
         route: { name: "today" },
         syncStatus: "local",
@@ -117,7 +134,7 @@ export const useQuadra = create<QuadraState>()(
             imageKey: input.imageKey ?? null,
             audioKey: input.audioKey ?? null,
             audioSource: input.audioSource ?? "none",
-            fsrs: createInitialFsrs(new Date()),
+            anki: createInitialAnki(new Date(), get().settings.anki),
             createdAt: now,
             updatedAt: now,
           };
@@ -135,22 +152,24 @@ export const useQuadra = create<QuadraState>()(
         rateCard: (id, rating) => {
           const now = new Date();
           const card = get().cards.find((c) => c.id === id);
-          if (!card) return;
-          const updated = applyRating(card, rating, now);
+          if (!card) return null;
+          const updated = applyRating(card, rating, now, get().settings.anki);
           const log: ReviewLog = {
             id: newId("rev"),
             cardId: id,
             rating,
             reviewedAt: now.toISOString(),
-            scheduledDays: updated.fsrs.scheduled_days,
+            scheduledDays: updated.anki.intervalDays,
           };
           set((s) => ({
             cards: s.cards.map((c) => (c.id === id ? updated : c)),
             reviews: [...s.reviews, log],
           }));
+          return updated;
         },
         importCards: (deckId, items, audioSource = "none") => {
           const now = touch();
+          const config = get().settings.anki;
           const cards: Card[] = items.map((item) => ({
             id: newId("card"),
             deckId,
@@ -161,29 +180,52 @@ export const useQuadra = create<QuadraState>()(
             imageKey: null,
             audioKey: null,
             audioSource,
-            fsrs: createInitialFsrs(new Date()),
+            anki: createInitialAnki(new Date(), config),
             createdAt: now,
             updatedAt: now,
           }));
           set((s) => ({ cards: [...s.cards, ...cards] }));
           return cards.length;
         },
-        replaceStore: (store) => set({ ...store }),
-        getDue: (deckId) => dueCards(get().cards, new Date(), deckId),
+        replaceStore: (store) =>
+          set({
+            ...store,
+            settings: store.settings ?? defaultSettings(),
+          }),
+        updateSettings: (partial) => {
+          set((s) => ({
+            settings: {
+              anki: {
+                ...s.settings.anki,
+                ...partial.anki,
+                learningSteps:
+                  partial.anki?.learningSteps ?? s.settings.anki.learningSteps,
+                relearningSteps:
+                  partial.anki?.relearningSteps ?? s.settings.anki.relearningSteps,
+              },
+            },
+          }));
+        },
+        getDue: (deckId) =>
+          dueCards(get().cards, new Date(), deckId, get().settings.anki),
         getAddedToday: () => cardsAddedToday(get().cards),
         search: (q) => searchCards(get().cards, q),
       };
     },
     {
-      name: "quadra-store-v1",
+      name: "quadra-store-v2",
       partialize: (s) => ({
         decks: s.decks,
         cards: s.cards,
         reviews: s.reviews,
+        settings: s.settings,
         version: s.version,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
+        if (state && !state.settings?.anki) {
+          state.updateSettings({ anki: defaultSettings().anki });
+        }
         if (typeof window !== "undefined") {
           (window as unknown as { __quadra: typeof useQuadra }).__quadra = useQuadra;
         }

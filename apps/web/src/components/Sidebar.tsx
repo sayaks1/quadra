@@ -19,6 +19,7 @@ export function Sidebar() {
   const decks = activeDecks(decksRaw);
 
   const selectedDeckId = route.name === "deck" || route.name === "study" ? route.deckId : undefined;
+  const settingsActive = route.name === "settings";
 
   return (
     <aside className="flex h-full w-[240px] shrink-0 flex-col px-4 py-5">
@@ -93,7 +94,13 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto flex items-center justify-between px-2 pt-4 text-[12px] text-stone">
-        <span>Settings</span>
+        <button
+          type="button"
+          className={cn("hover:text-ink", settingsActive && "text-ink font-medium")}
+          onClick={() => setRoute({ name: "settings" })}
+        >
+          Settings
+        </button>
         <span className="capitalize">{syncStatus === "local" ? "Local" : syncStatus}</span>
       </div>
     </aside>

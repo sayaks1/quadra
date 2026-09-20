@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { deckStats, type Card } from "@quadra/shared";
+import { deckStats, shouldRequeueInSession, type Card } from "@quadra/shared";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
@@ -103,9 +103,12 @@ export function StudyView({ deckId }: { deckId?: string }) {
         <div className="rounded-[20px] bg-card px-8 py-10 shadow-sm">
           <div className="mb-8 flex items-center justify-between text-[12px] text-stone">
             <span>
-              {current.fsrs.state === "new" && current.fsrs.reps === 0
+              {current.anki.phase === "new" ||
+              (current.anki.phase === "learning" && current.anki.reps === 0)
                 ? "New"
-                : `Review · seen ${current.fsrs.reps} times`}
+                : current.anki.phase === "learning" || current.anki.phase === "relearning"
+                  ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
+                  : `Review · seen ${current.anki.reps} times`}
             </span>
             <button
               type="button"
@@ -160,10 +163,17 @@ export function StudyView({ deckId }: { deckId?: string }) {
             <RatingBar
               card={current}
               onRate={(rating) => {
-                rateCard(current.id, rating);
-                setQueue((q) => q.slice(1));
+                const updated = rateCard(current.id, rating);
                 setDoneCount((n) => n + 1);
                 setRevealed(false);
+                setQueue((q) => {
+                  const rest = q.slice(1);
+                  if (updated && shouldRequeueInSession(updated)) {
+                    // Anki-style: keep learning/relearning cards in session until graduated to day+
+                    return [...rest, updated];
+                  }
+                  return rest;
+                });
               }}
             />
           )}
