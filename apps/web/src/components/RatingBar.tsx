@@ -26,10 +26,10 @@ export function RatingBar({
   const now = new Date();
   const intervals = previewIntervals(card, now, config);
   const keyByRating: Record<Rating, string> = {
-    again: "1",
-    hard: "2",
-    good: "3",
-    easy: "4",
+    again: "J",
+    hard: "K",
+    good: "L",
+    easy: ";",
   };
 
   return (

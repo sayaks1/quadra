@@ -46,6 +46,18 @@ export function StudyView({ deckId }: { deckId?: string }) {
     }
   }, [audioUrl, current, deck?.language]);
 
+  const reveal = useCallback(() => {
+    setRevealed(true);
+    // Play pronunciation when the card is flipped
+    if (current) {
+      if (audioUrl) {
+        void new Audio(audioUrl).play();
+      } else {
+        void speakFallback(current.term, deck?.language);
+      }
+    }
+  }, [audioUrl, current, deck?.language]);
+
   const handleRate = useCallback(
     (rating: Rating) => {
       if (!current) return;
@@ -97,28 +109,29 @@ export function StudyView({ deckId }: { deckId?: string }) {
       if (!revealed) {
         if (e.code === "Space" || e.key === "Enter") {
           e.preventDefault();
-          setRevealed(true);
+          reveal();
         }
         return;
       }
 
-      // Anki-style rating keys (top row + numpad)
-      if (e.code === "Numpad1" || e.key === "1") {
+      // Home-row ratings: J K L ;
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === "j") {
         e.preventDefault();
         handleRate("again");
         return;
       }
-      if (e.code === "Numpad2" || e.key === "2") {
+      if (key === "k") {
         e.preventDefault();
         handleRate("hard");
         return;
       }
-      if (e.code === "Numpad3" || e.key === "3") {
+      if (key === "l") {
         e.preventDefault();
         handleRate("good");
         return;
       }
-      if (e.code === "Numpad4" || e.key === "4") {
+      if (e.key === ";" || e.code === "Semicolon") {
         e.preventDefault();
         handleRate("easy");
         return;
@@ -127,7 +140,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, revealed, handleRate, playAudio]);
+  }, [current, revealed, handleRate, playAudio, reveal]);
 
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
@@ -215,7 +228,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <PillButton
                 variant="ink"
                 className="w-full py-3.5"
-                onClick={() => setRevealed(true)}
+                onClick={reveal}
               >
                 Show answer
               </PillButton>
@@ -225,7 +238,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   <kbd className="rounded bg-card px-1.5 py-0.5">Enter</kbd> reveal
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">A</kbd> audio
+                  <kbd className="rounded bg-card px-1.5 py-0.5">A</kbd> replay audio
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
@@ -237,16 +250,16 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <RatingBar card={current} onRate={handleRate} showKeys />
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">1</kbd> Again
+                  <kbd className="rounded bg-card px-1.5 py-0.5">J</kbd> Again
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">2</kbd> Hard
+                  <kbd className="rounded bg-card px-1.5 py-0.5">K</kbd> Hard
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">3</kbd> Good
+                  <kbd className="rounded bg-card px-1.5 py-0.5">L</kbd> Good
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">4</kbd> Easy
+                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> Easy
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
