@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Card } from "@quadra/shared";
 import { activeDecks } from "@quadra/shared";
 import { PillButton } from "@/components/ui";
@@ -204,7 +204,7 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="block">

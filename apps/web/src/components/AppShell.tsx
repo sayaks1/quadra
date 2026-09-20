@@ -40,20 +40,37 @@ export function AppShell() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const unsub = useQuadra.subscribe((state) => {
-      const payload = {
-        decks: state.decks,
-        cards: state.cards,
-        reviews: state.reviews,
-        version: state.version,
-      };
-      void fetch("/api/store", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }).catch(() => undefined);
+    let timer: number | undefined;
+    const unsub = useQuadra.subscribe((state, prev) => {
+      if (
+        state.decks === prev.decks &&
+        state.cards === prev.cards &&
+        state.reviews === prev.reviews
+      ) {
+        return;
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const payload = {
+          decks: state.decks,
+          cards: state.cards,
+          reviews: state.reviews,
+          version: state.version,
+        };
+        useQuadra.setState({ syncStatus: "syncing" });
+        void fetch("/api/store", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+          .then(() => useQuadra.setState({ syncStatus: "synced" }))
+          .catch(() => useQuadra.setState({ syncStatus: "offline" }));
+      }, 500);
     });
-    return () => unsub();
+    return () => {
+      window.clearTimeout(timer);
+      unsub();
+    };
   }, [hydrated]);
 
   if (!hydrated) {
