@@ -49,7 +49,7 @@ Copy `.env.example` to `apps/web/.env.local`:
 ## Features
 
 - **Study** with **Anki SM-2** scheduling (learning steps `1m 10m`, graduate at 1 day; learning cards stay in-session until day+)
-- **Today** dashboard, **Added today**, global **Search**, **Settings** (tune steps / intervals)
+- **Today** dashboard, global **Search** (with an **Added today** filter), **Settings** (tune steps / intervals)
 - **Add card**, **Anki `.apkg` import**, **AI from notes** (review one-by-one)
 - **AI TTS** with optional mic override
 - Desktop + iOS auto-sync via `/api/store` (Supabase-ready schema included)

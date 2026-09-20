@@ -69,14 +69,9 @@ export function Sidebar() {
           onClick={() => setRoute({ name: "today" })}
         />
         <NavRow
-          active={route.name === "added-today"}
-          label="Added today"
-          onClick={() => setRoute({ name: "added-today" })}
-        />
-        <NavRow
           active={route.name === "search"}
           label="Search"
-          onClick={() => setRoute({ name: "search", query: "" })}
+          onClick={() => setRoute({ name: "search", query: "", addedToday: false })}
         />
         <div className="my-2 h-px bg-stone/30" />
         {decks.map((deck) => {

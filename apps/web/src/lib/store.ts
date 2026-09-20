@@ -24,8 +24,7 @@ import {
 
 export type Route =
   | { name: "today" }
-  | { name: "search"; query?: string }
-  | { name: "added-today" }
+  | { name: "search"; query?: string; addedToday?: boolean }
   | { name: "deck"; deckId: string; tab: "study" | "cards" | "stats" }
   | { name: "study"; deckId?: string }
   | { name: "settings" };

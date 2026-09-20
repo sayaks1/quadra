@@ -89,17 +89,11 @@ export function AppShell() {
             <TodayView onOpenAdd={() => setAdding(true)} />
           ) : null}
           {route.name === "settings" ? <SettingsView /> : null}
-          {route.name === "added-today" ? (
-            <CardsView
-              addedTodayOnly
-              onEdit={setEditing}
-              onOpenAdd={() => setAdding(true)}
-            />
-          ) : null}
           {route.name === "search" ? (
             <CardsView
               global
               initialQuery={route.query ?? ""}
+              initialAddedToday={route.addedToday ?? false}
               onEdit={setEditing}
               onOpenAdd={() => setAdding(true)}
             />

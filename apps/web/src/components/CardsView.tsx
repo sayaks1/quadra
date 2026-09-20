@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   cardStatusLabel,
+  cardsAddedToday,
   cardsForDeck,
   deckStats,
   type Card,
@@ -16,41 +17,50 @@ export function CardsView({
   onEdit,
   onOpenAdd,
   global = false,
-  addedTodayOnly = false,
   initialQuery = "",
+  initialAddedToday = false,
 }: {
   deckId?: string;
   onEdit: (card: Card) => void;
   onOpenAdd: () => void;
   global?: boolean;
-  addedTodayOnly?: boolean;
   initialQuery?: string;
+  initialAddedToday?: boolean;
 }) {
   const [query, setQuery] = useState(initialQuery);
+  const [addedToday, setAddedToday] = useState(initialAddedToday);
   const cards = useQuadra((s) => s.cards);
   const decks = useQuadra((s) => s.decks);
   const search = useQuadra((s) => s.search);
-  const getAddedToday = useQuadra((s) => s.getAddedToday);
   const setRoute = useQuadra((s) => s.setRoute);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    setAddedToday(initialAddedToday);
+  }, [initialAddedToday]);
 
   const deck = decks.find((d) => d.id === deckId);
   const list = useMemo(() => {
-    let base: Card[] = global
-      ? search(query)
-      : addedTodayOnly
-        ? getAddedToday()
-        : cardsForDeck(cards, deckId!);
-    if (!global && query.trim()) {
+    if (global) {
+      let base = search(query);
+      if (addedToday) {
+        const todayIds = new Set(cardsAddedToday(cards).map((c) => c.id));
+        base = base.filter((c) => todayIds.has(c.id));
+      }
+      return base;
+    }
+    let base = cardsForDeck(cards, deckId!);
+    if (query.trim()) {
       const q = query.toLowerCase();
       base = base.filter((c) =>
         `${c.term} ${c.reading} ${c.meaning} ${c.notes}`.toLowerCase().includes(q),
       );
     }
-    if (global && !query.trim() && !addedTodayOnly) {
-      base = search("");
-    }
     return base;
-  }, [cards, deckId, global, addedTodayOnly, query, search, getAddedToday]);
+  }, [cards, deckId, global, addedToday, query, search]);
 
   const stats = deckId ? deckStats(cards, deckId) : null;
 
@@ -58,14 +68,10 @@ export function CardsView({
     <div className="flex h-full flex-col p-8">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="font-serif text-[34px]">
-          {addedTodayOnly
-            ? "Added today"
-            : global
-              ? "Search"
-              : deck?.name ?? "Cards"}
+          {global ? "Search" : deck?.name ?? "Cards"}
         </h1>
         <div className="flex items-center gap-2">
-          {!global && !addedTodayOnly && deckId ? (
+          {!global && deckId ? (
             <Segmented
               value="cards"
               onChange={(tab) => {
@@ -80,17 +86,38 @@ export function CardsView({
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={
             global
-              ? "Search all flashcards"
+              ? addedToday
+                ? "Search cards added today"
+                : "Search all flashcards"
               : `Search ${stats?.total ?? list.length} cards`
           }
-          className="w-full rounded-full bg-card px-5 py-3 text-[14.5px] outline-none ring-1 ring-stone/30 focus:ring-oxblood/40"
+          className="w-full flex-1 rounded-full bg-card px-5 py-3 text-[14.5px] outline-none ring-1 ring-stone/30 focus:ring-oxblood/40"
+          autoFocus={global}
         />
+        {global ? (
+          <button
+            type="button"
+            onClick={() => {
+              const next = !addedToday;
+              setAddedToday(next);
+              setRoute({ name: "search", query, addedToday: next });
+            }}
+            className={cn(
+              "shrink-0 rounded-full px-4 py-2.5 text-[13px] font-medium transition",
+              addedToday
+                ? "bg-oxblood text-white"
+                : "bg-card text-ink ring-1 ring-stone/30 hover:bg-field",
+            )}
+          >
+            Added today
+          </button>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-[20px] bg-card shadow-sm">
@@ -98,9 +125,11 @@ export function CardsView({
           <EmptyState
             title="Nothing here yet"
             body={
-              addedTodayOnly
-                ? "Cards you create today will show up here."
-                : "Add a first card and Quadra will decide when to show it to you."
+              addedToday
+                ? "No cards match — try clearing the Added today filter or add a new card."
+                : global
+                  ? "Try a different search, or add a card."
+                  : "Add a first card and Quadra will decide when to show it to you."
             }
             actionLabel="Add a card"
             onAction={onOpenAdd}
@@ -160,7 +189,10 @@ export function CardsView({
           {stats.total} cards · {stats.due} due today · 0 suspended
         </p>
       ) : (
-        <p className="mt-3 text-[12px] text-stone">{list.length} cards</p>
+        <p className="mt-3 text-[12px] text-stone">
+          {list.length} card{list.length === 1 ? "" : "s"}
+          {addedToday ? " added today" : ""}
+        </p>
       )}
     </div>
   );
@@ -179,12 +211,7 @@ export function Segmented({
         <button
           key={tab}
           type="button"
-          onClick={() => {
-            if (tab === "study") {
-              // parent handles via onChange
-            }
-            onChange(tab);
-          }}
+          onClick={() => onChange(tab)}
           className={cn(
             "rounded-full px-4 py-1.5 text-[13px] font-medium capitalize",
             value === tab ? "bg-card text-ink shadow-sm" : "text-stone",
