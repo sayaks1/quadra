@@ -171,7 +171,17 @@ export function CardsView({
                       </span>
                     </span>
                     {global ? (
-                      <span className="shrink-0 text-[12px] text-stone">{d?.name}</span>
+                      <span className="hidden shrink-0 text-[12px] text-stone sm:inline">
+                        {d?.name}
+                      </span>
+                    ) : null}
+                    {global ? (
+                      <span
+                        className="w-[7.5rem] shrink-0 text-right text-[12px] text-stone"
+                        title={new Date(card.createdAt).toLocaleString()}
+                      >
+                        {formatAddedAt(card.createdAt)}
+                      </span>
                     ) : null}
                     <span className="w-12 shrink-0 text-right text-[12px] text-stone">
                       {status}
@@ -247,4 +257,29 @@ export function EmptyState({
       </PillButton>
     </div>
   );
+}
+
+function formatAddedAt(iso: string, now = new Date()) {
+  const added = new Date(iso);
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const startAdded = new Date(added);
+  startAdded.setHours(0, 0, 0, 0);
+  const dayDiff = Math.round(
+    (startToday.getTime() - startAdded.getTime()) / 86400_000,
+  );
+
+  if (dayDiff <= 0) {
+    return `Today ${added.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+  if (dayDiff === 1) return "Yesterday";
+  if (dayDiff < 7) return `${dayDiff}d ago`;
+  return added.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: added.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
 }
