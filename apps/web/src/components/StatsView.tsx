@@ -6,21 +6,13 @@ import {
   cardsForDeck,
   deckStats,
 } from "@quadra/shared";
-import { Segmented } from "@/components/CardsView";
-import { PillButton } from "@/components/ui";
+import { DeckPageHeader } from "@/components/DeckPageHeader";
 import { useQuadra } from "@/lib/store";
 
-export function StatsView({
-  deckId,
-  onOpenAdd,
-}: {
-  deckId: string;
-  onOpenAdd: () => void;
-}) {
+export function StatsView({ deckId }: { deckId: string }) {
   const decks = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const reviews = useQuadra((s) => s.reviews);
-  const setRoute = useQuadra((s) => s.setRoute);
   const deck = decks.find((d) => d.id === deckId);
   const list = cardsForDeck(cards, deckId);
   const stats = deckStats(cards, deckId);
@@ -56,25 +48,41 @@ export function StatsView({
     (c) => c.anki.phase === "review" && c.anki.intervalDays < 21,
   ).length;
 
+  function exportDeck() {
+    if (!deck) return;
+    const payload = {
+      name: deck.name,
+      language: deck.language,
+      exportedAt: new Date().toISOString(),
+      cards: list.map((c) => ({
+        term: c.term,
+        reading: c.reading,
+        meaning: c.meaning,
+        notes: c.notes,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${deck.name.replace(/\s+/g, "-").toLowerCase()}-quadra.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (!deck) return null;
 
   return (
     <div className="flex h-full flex-col p-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="font-serif text-[34px]">{deck.name}</h1>
-        <div className="flex items-center gap-2">
-          <Segmented
-            value="stats"
-            onChange={(tab) => {
-              if (tab === "study") setRoute({ name: "study", deckId });
-              else setRoute({ name: "deck", deckId, tab });
-            }}
-          />
-          <PillButton variant="ghost" onClick={onOpenAdd}>
-            Export
-          </PillButton>
-        </div>
-      </div>
+      <DeckPageHeader
+        deckId={deckId}
+        title={deck.name}
+        tab="stats"
+        secondaryLabel="Export"
+        onSecondary={exportDeck}
+      />
 
       <div className="grid grid-cols-4 gap-3">
         <Metric value={`${answered}`} label="answered today" />

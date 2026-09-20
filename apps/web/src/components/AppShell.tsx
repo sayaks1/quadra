@@ -107,8 +107,9 @@ export function AppShell() {
             />
           ) : null}
           {route.name === "deck" && route.tab === "stats" ? (
-            <StatsView deckId={route.deckId} onOpenAdd={() => setAdding(true)} />
+            <StatsView deckId={route.deckId} />
           ) : null}
+          {/* Legacy persisted routes used deck.tab === "study"; send them to study */}
           {route.name === "deck" && route.tab === "study" ? (
             <StudyView deckId={route.deckId} />
           ) : null}

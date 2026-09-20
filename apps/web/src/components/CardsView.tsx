@@ -9,6 +9,7 @@ import {
   type Card,
 } from "@quadra/shared";
 import { PillButton } from "@/components/ui";
+import { DeckPageHeader } from "@/components/DeckPageHeader";
 import { useQuadra } from "@/lib/store";
 import { cn } from "@/lib/cn";
 
@@ -66,25 +67,24 @@ export function CardsView({
 
   return (
     <div className="flex h-full flex-col p-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="font-serif text-[34px]">
-          {global ? "Search" : deck?.name ?? "Cards"}
-        </h1>
-        <div className="flex items-center gap-2">
-          {!global && deckId ? (
-            <Segmented
-              value="cards"
-              onChange={(tab) => {
-                if (tab === "study") setRoute({ name: "study", deckId });
-                else setRoute({ name: "deck", deckId, tab });
-              }}
-            />
-          ) : null}
+      {global ? (
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h1 className="font-serif text-[34px]">Search</h1>
           <PillButton variant="oxblood" onClick={onOpenAdd}>
             Add card
           </PillButton>
         </div>
-      </div>
+      ) : deckId && deck ? (
+        <DeckPageHeader
+          deckId={deckId}
+          title={deck.name}
+          tab="cards"
+          secondaryLabel="Add card"
+          onSecondary={onOpenAdd}
+        />
+      ) : (
+        <h1 className="mb-6 font-serif text-[34px]">Cards</h1>
+      )}
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
@@ -204,32 +204,6 @@ export function CardsView({
           {addedToday ? " added today" : ""}
         </p>
       )}
-    </div>
-  );
-}
-
-export function Segmented({
-  value,
-  onChange,
-}: {
-  value: "study" | "cards" | "stats";
-  onChange: (v: "study" | "cards" | "stats") => void;
-}) {
-  return (
-    <div className="flex rounded-full bg-field p-1">
-      {(["study", "cards", "stats"] as const).map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={() => onChange(tab)}
-          className={cn(
-            "rounded-full px-4 py-1.5 text-[13px] font-medium capitalize",
-            value === tab ? "bg-card text-ink shadow-sm" : "text-stone",
-          )}
-        >
-          {tab}
-        </button>
-      ))}
     </div>
   );
 }
