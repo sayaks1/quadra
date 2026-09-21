@@ -6,6 +6,7 @@ import { pullCloudStore, pushCloudStore } from "@/lib/cloud-store";
 import { isCloudConfigured } from "@/lib/supabase";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const storePath = () => path.join(process.cwd(), ".data", "store.json");
 

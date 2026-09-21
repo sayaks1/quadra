@@ -20,6 +20,10 @@ export const maxDuration = 300;
 
 const storePath = () => path.join(process.cwd(), ".data", "store.json");
 
+function matchKey(term: string, meaning: string) {
+  return `${term.trim().toLowerCase()}\0${meaning.trim().toLowerCase()}`;
+}
+
 function contentTypeFor(name: string) {
   const lower = name.toLowerCase();
   if (lower.endsWith(".png")) return "image/png";
@@ -102,34 +106,59 @@ export async function POST(req: Request) {
     }
 
     const config = store.settings?.anki;
-    const imported: Card[] = result.cards.map((item) => ({
-      id: newId("card"),
-      deckId: deck!.id,
-      term: item.term,
-      reading: item.reading,
-      meaning: item.meaning,
-      notes: item.notes,
-      imageKey: null,
-      audioKey: null,
-      audioSource: item.audioKey ? "anki" : "none",
-      anki: createInitialAnki(new Date(), config),
-      createdAt: now,
-      updatedAt: now,
-    }));
+    const deckCards = store.cards.filter((c) => c.deckId === deck!.id && !c.deletedAt);
+    const byKey = new Map(deckCards.map((c) => [matchKey(c.term, c.meaning), c]));
 
-    // Remember media filenames alongside new ids
-    const mediaPlan = imported.map((card, i) => ({
-      id: card.id,
-      imageName: result.cards[i]?.imageKey || null,
-      audioName: result.cards[i]?.audioKey || null,
-    }));
+    const imported: Card[] = [];
+    const updated: Card[] = [];
+    for (const item of result.cards) {
+      const anki = item.anki ?? createInitialAnki(new Date(), config);
+      const key = matchKey(item.term, item.meaning);
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.anki = anki;
+        existing.reading = item.reading || existing.reading;
+        existing.notes = item.notes || existing.notes;
+        existing.audioSource = item.audioKey ? "anki" : existing.audioSource;
+        existing.updatedAt = now;
+        updated.push(existing);
+        continue;
+      }
+      const card: Card = {
+        id: newId("card"),
+        deckId: deck!.id,
+        term: item.term,
+        reading: item.reading,
+        meaning: item.meaning,
+        notes: item.notes,
+        imageKey: null,
+        audioKey: null,
+        audioSource: item.audioKey ? "anki" : "none",
+        anki,
+        createdAt: now,
+        updatedAt: now,
+      };
+      imported.push(card);
+      byKey.set(key, card);
+    }
+
+    const mediaPlan = [...imported, ...updated].map((card) => {
+      const item = result.cards.find(
+        (c) => matchKey(c.term, c.meaning) === matchKey(card.term, card.meaning),
+      );
+      return {
+        id: card.id,
+        imageName: item?.imageKey || null,
+        audioName: item?.audioKey || null,
+      };
+    });
 
     store.cards.push(...imported);
     await writeLocal(store);
     if (isCloudConfigured()) {
       await upsertCloudPieces({
         decks: [deck],
-        cards: imported,
+        cards: [...imported, ...updated],
         settings: store.settings,
         version: store.version,
       });
@@ -190,9 +219,14 @@ export async function POST(req: Request) {
       }
     }
 
+    const kept = [...imported, ...updated].filter((c) => c.anki.phase !== "new").length;
+
     return NextResponse.json({
       ok: true,
-      count: imported.length,
+      count: imported.length + updated.length,
+      added: imported.length,
+      updated: updated.length,
+      withProgress: kept,
       deckId: deck.id,
       mediaUploaded,
       filename: file.name,

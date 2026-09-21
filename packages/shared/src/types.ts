@@ -105,4 +105,6 @@ export interface ProposedCard {
   language?: Language;
   imageKey?: string | null;
   audioKey?: string | null;
+  /** Preserved Anki scheduling when imported from .apkg */
+  anki?: AnkiState;
 }

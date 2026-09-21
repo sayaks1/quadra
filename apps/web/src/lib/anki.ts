@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { decompress as decompressZstd } from "fzstd";
-import type { ProposedCard } from "@quadra/shared";
+import type { AnkiState, ProposedCard } from "@quadra/shared";
 
 export interface AnkiImportResult {
   cards: ProposedCard[];
@@ -8,11 +8,13 @@ export interface AnkiImportResult {
   mediaMap: Record<string, string>;
 }
 
+type SqlDb = {
+  exec: (sql: string) => Array<{ columns: string[]; values: unknown[][] }>;
+  close: () => void;
+};
+
 type SqlJsStatic = {
-  Database: new (data?: ArrayLike<number>) => {
-    exec: (sql: string) => Array<{ values: unknown[][] }>;
-    close: () => void;
-  };
+  Database: new (data?: ArrayLike<number>) => SqlDb;
 };
 
 function extractImageRef(html: string): string | null {
@@ -84,56 +86,53 @@ export async function parseApkgWithSql(
   const cards: ProposedCard[] = [];
   const db = opened.db;
   try {
-    const result = db.exec("SELECT flds FROM notes");
-    if (result[0]) {
-      for (const row of result[0].values) {
-        const rawFlds = String(row[0] ?? "");
-        const rawFields = rawFlds.split("\x1f");
-        const fields = rawFields.map(stripHtml);
+    const crt = readCollectionCrt(db);
+    const grouped = readNotesWithScheduling(db);
+    for (const row of grouped) {
+      const rawFlds = row.flds;
+      const rawFields = rawFlds.split("\x1f");
+      const fields = rawFields.map(stripHtml);
 
-        const term = fields[0] || "";
-        const meaning = fields[1] || fields.slice(1).join(" — ");
-        const reading = fields[2] || "";
-        if (!term && !meaning) continue;
-        if (UPGRADE_STUB.test(term) || UPGRADE_STUB.test(rawFlds)) continue;
+      const term = fields[0] || "";
+      const meaning = fields[1] || fields.slice(1).join(" — ");
+      const reading = fields[2] || "";
+      if (!term && !meaning) continue;
+      if (UPGRADE_STUB.test(term) || UPGRADE_STUB.test(rawFlds)) continue;
 
-        let imageKey: string | null = null;
-        let audioKey: string | null = null;
-        for (const raw of rawFields) {
-          if (!imageKey) {
-            const ref = extractImageRef(raw);
-            if (ref) {
-              const mediaKey = nameToKey[ref] ?? nameToKey[pathBasename(ref)];
-              const filename = mediaKey != null ? mediaMap[mediaKey] || ref : ref;
-              if (
-                /\.(png|jpe?g|gif|webp|svg)$/i.test(filename) ||
-                mediaKey != null
-              ) {
-                imageKey = pathBasename(String(filename));
-              }
-            }
-          }
-          if (!audioKey) {
-            const aref = extractAudioRef(raw);
-            if (aref) {
-              const mediaKey = nameToKey[aref] ?? nameToKey[pathBasename(aref)];
-              const filename = mediaKey != null ? mediaMap[mediaKey] || aref : aref;
-              if (/\.(mp3|ogg|wav|m4a|opus)$/i.test(filename) || mediaKey != null) {
-                audioKey = pathBasename(String(filename));
-              }
+      let imageKey: string | null = null;
+      let audioKey: string | null = null;
+      for (const raw of rawFields) {
+        if (!imageKey) {
+          const ref = extractImageRef(raw);
+          if (ref) {
+            const mediaKey = nameToKey[ref] ?? nameToKey[pathBasename(ref)];
+            const filename = mediaKey != null ? mediaMap[mediaKey] || ref : ref;
+            if (/\.(png|jpe?g|gif|webp|svg)$/i.test(filename) || mediaKey != null) {
+              imageKey = pathBasename(String(filename));
             }
           }
         }
-
-        cards.push({
-          term,
-          reading,
-          meaning,
-          notes: fields.slice(3).filter(Boolean).join("\n"),
-          imageKey,
-          audioKey,
-        });
+        if (!audioKey) {
+          const aref = extractAudioRef(raw);
+          if (aref) {
+            const mediaKey = nameToKey[aref] ?? nameToKey[pathBasename(aref)];
+            const filename = mediaKey != null ? mediaMap[mediaKey] || aref : aref;
+            if (/\.(mp3|ogg|wav|m4a|opus)$/i.test(filename) || mediaKey != null) {
+              audioKey = pathBasename(String(filename));
+            }
+          }
+        }
       }
+
+      cards.push({
+        term,
+        reading,
+        meaning,
+        notes: fields.slice(3).filter(Boolean).join("\n"),
+        imageKey,
+        audioKey,
+        anki: row.scheduling ? schedulingFromAnki(row.scheduling, crt) : undefined,
+      });
     }
   } finally {
     db.close();
@@ -157,6 +156,122 @@ function isZstd(bytes: Uint8Array) {
 }
 
 const UPGRADE_STUB = /please update to the latest anki version/i;
+
+type SchedRow = {
+  type: number;
+  queue: number;
+  due: number;
+  ivl: number;
+  factor: number;
+  reps: number;
+  lapses: number;
+  left: number;
+};
+
+function num(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function readCollectionCrt(db: SqlDb) {
+  try {
+    const res = db.exec("SELECT crt FROM col LIMIT 1");
+    const crt = num(res[0]?.values[0]?.[0]);
+    if (crt > 1_000_000_000) return crt;
+  } catch {
+    /* collection metadata missing */
+  }
+  const nowSec = Math.floor(Date.now() / 1000);
+  return nowSec - (nowSec % 86400);
+}
+
+function progressScore(s: SchedRow) {
+  if (s.queue < 0) return -1;
+  if (s.type === 2 || s.queue === 2) return 1_000_000 + s.reps + Math.max(0, s.ivl);
+  if (s.type === 1 || s.type === 3) return 10_000 + s.reps;
+  return s.reps;
+}
+
+/** One row per note, keeping the sibling card with the most progress. */
+function readNotesWithScheduling(db: SqlDb): Array<{ flds: string; scheduling: SchedRow | null }> {
+  try {
+    const res = db.exec(`
+      SELECT n.id AS nid, n.flds AS flds, c.type AS type, c.queue AS queue,
+             c.due AS due, c.ivl AS ivl, c.factor AS factor, c.reps AS reps,
+             c.lapses AS lapses, c."left" AS steps_left
+      FROM notes n
+      LEFT JOIN cards c ON c.nid = n.id
+    `);
+    const table = res[0];
+    if (!table) return [];
+    const col = (name: string) => table.columns.indexOf(name);
+    const byNote = new Map<string, { flds: string; scheduling: SchedRow | null; score: number }>();
+    for (const row of table.values) {
+      const id = String(row[col("nid")] ?? "");
+      const flds = String(row[col("flds")] ?? "");
+      const hasCard = row[col("type")] != null && row[col("type")] !== "";
+      const scheduling: SchedRow | null = hasCard
+        ? {
+            type: num(row[col("type")]),
+            queue: num(row[col("queue")]),
+            due: num(row[col("due")]),
+            ivl: num(row[col("ivl")]),
+            factor: num(row[col("factor")]),
+            reps: num(row[col("reps")]),
+            lapses: num(row[col("lapses")]),
+            left: num(row[col("steps_left")]),
+          }
+        : null;
+      const score = scheduling ? progressScore(scheduling) : -2;
+      const prev = byNote.get(id);
+      if (!prev || score > prev.score) byNote.set(id, { flds, scheduling, score });
+    }
+    return [...byNote.values()].map(({ flds, scheduling }) => ({ flds, scheduling }));
+  } catch (err) {
+    console.error("anki scheduling query failed; importing notes without progress", err);
+    const res = db.exec("SELECT flds FROM notes");
+    return (res[0]?.values ?? []).map((row) => ({
+      flds: String(row[0] ?? ""),
+      scheduling: null,
+    }));
+  }
+}
+
+/** Map Anki's cards table onto Quadra's scheduler. */
+function schedulingFromAnki(s: SchedRow, crtSec: number): AnkiState {
+  const ease = s.factor >= 1300 ? Math.round((s.factor / 1000) * 100) / 100 : 2.5;
+  const intervalDays = s.ivl > 0 ? s.ivl : 0;
+  let phase: AnkiState["phase"] = "new";
+  if (s.type === 2 || s.queue === 2) phase = "review";
+  else if (s.type === 3) phase = "relearning";
+  else if (s.type === 1 || s.queue === 1 || s.queue === 3) phase = "learning";
+
+  const remaining = Math.abs(s.left) % 1000;
+  const learningStep = phase === "learning" || phase === "relearning" ? (remaining <= 1 ? 1 : 0) : 0;
+
+  let dueMs: number;
+  if (s.queue < 0) {
+    dueMs = Date.UTC(2099, 0, 1);
+  } else if ((s.queue === 1 || phase === "learning") && s.due > 1_000_000_000) {
+    dueMs = s.due * 1000;
+  } else if (phase === "review" || phase === "relearning" || s.queue === 2 || s.queue === 3) {
+    dueMs = (crtSec + s.due * 86400) * 1000;
+  } else {
+    dueMs = Date.now();
+  }
+  if (!Number.isFinite(dueMs)) dueMs = Date.now();
+
+  return {
+    phase,
+    due: new Date(dueMs).toISOString(),
+    intervalDays: phase === "review" ? Math.max(intervalDays, 1) : intervalDays,
+    ease,
+    reps: Math.max(0, s.reps),
+    lapses: Math.max(0, s.lapses),
+    learningStep,
+    lastReview: null,
+  };
+}
 
 async function openBestCollection(zip: JSZip, SQL: SqlJsStatic) {
   const names = Object.keys(zip.files).filter((name) =>

@@ -95,12 +95,16 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
 
       // Pull the saved store (cards are already in Supabase / local)
       let loaded = false;
+      const added = Number(data.added ?? 0);
+      const updated = Number(data.updated ?? 0);
       for (let attempt = 0; attempt < 5 && !loaded; attempt++) {
         if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
-        const fresh = await fetch("/api/store");
+        const fresh = await fetch("/api/store", { cache: "no-store" });
         const remote = await fresh.json();
         const n = Array.isArray(remote?.cards) ? remote.cards.length : 0;
-        if (n > beforeCount) {
+        const grew = n > beforeCount;
+        const refreshedInPlace = updated > 0 && n > 0 && n >= beforeCount;
+        if ((grew || refreshedInPlace) && remote?.decks) {
           useQuadra.getState().replaceStore({
             decks: remote.decks,
             cards: remote.cards,
@@ -111,12 +115,19 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
           loaded = true;
         }
       }
+      const summary = [
+        added ? `${added} new` : null,
+        updated ? `${updated} updated from Anki` : null,
+        !added && !updated ? `${data.count ?? 0} cards` : null,
+        data.withProgress ? `${data.withProgress} kept their intervals` : null,
+        data.mediaUploaded ? `${data.mediaUploaded} media files` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
       setStatus(
         loaded
-          ? `Imported ${data.count ?? 0} cards${
-              data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""
-            }`
-          : `Imported ${data.count ?? 0} cards on the server — refresh if they don’t appear yet.`,
+          ? `Imported ${summary}`
+          : `Imported ${summary} on the server — refresh if the list looks stale.`,
       );
     } catch (e) {
       // The server may have saved cards even if the browser connection dropped
