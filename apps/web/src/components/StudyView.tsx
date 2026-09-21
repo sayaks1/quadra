@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   deckStats,
   shouldRequeueInSession,
@@ -11,6 +11,48 @@ import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
 import { mediaUrl } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+}
+
+/** Map a keydown to a study rating. Uses physical codes + Anki 1–4. */
+function ratingFromKeyboard(e: KeyboardEvent): Rating | null {
+  switch (e.code) {
+    case "KeyJ":
+    case "Digit1":
+    case "Numpad1":
+      return "again";
+    case "KeyK":
+    case "Digit2":
+    case "Numpad2":
+      return "hard";
+    case "KeyL":
+    case "Digit3":
+    case "Numpad3":
+      return "good";
+    case "Semicolon":
+    case "Digit4":
+    case "Numpad4":
+      return "easy";
+    default:
+      break;
+  }
+  // Fallback for odd layouts / synthetic events
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (key === "j" || key === "1") return "again";
+  if (key === "k" || key === "2") return "hard";
+  if (key === "l" || key === "3") return "good";
+  if (key === ";" || key === "4") return "easy";
+  return null;
+}
 
 export function StudyView({ deckId }: { deckId?: string }) {
   const cards = useQuadra((s) => s.cards);
@@ -24,6 +66,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const [doneCount, setDoneCount] = useState(0);
   const [startedAt] = useState(() => Date.now());
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  const revealedRef = useRef(revealed);
+  const currentRef = useRef<Card | undefined>(undefined);
+  const playAudioRef = useRef<() => void>(() => undefined);
+  const revealRef = useRef<() => void>(() => undefined);
+  const rateRef = useRef<(rating: Rating) => void>(() => undefined);
+
   const current = queue[0];
   const deck = decks.find((d) => d.id === (deckId || current?.deckId));
   const stats = deck ? deckStats(cards, deck.id) : null;
@@ -32,6 +81,12 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   const audioUrl = useMemo(() => mediaUrl(current?.audioKey), [current]);
   const imageUrl = useMemo(() => mediaUrl(current?.imageKey), [current]);
+
+  const focusStudy = useCallback(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (typeof el.focus === "function") el.focus({ preventScroll: true });
+  }, []);
 
   const playAudio = useCallback(() => {
     if (!current) return;
@@ -44,7 +99,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   const reveal = useCallback(() => {
     setRevealed(true);
-    // Play pronunciation when the card is flipped
+    // Keep keyboard focus on the study surface (not a transient button)
+    requestAnimationFrame(() => focusStudy());
     if (current) {
       if (audioUrl) {
         void new Audio(audioUrl).play();
@@ -52,12 +108,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
         void speakFallback(current.term, deck?.language);
       }
     }
-  }, [audioUrl, current, deck?.language]);
+  }, [audioUrl, current, deck?.language, focusStudy]);
 
   const handleRate = useCallback(
     (rating: Rating) => {
-      if (!current) return;
-      const updated = rateCard(current.id, rating);
+      const card = currentRef.current;
+      if (!card) return;
+      const updated = rateCard(card.id, rating);
       setDoneCount((n) => n + 1);
       setRevealed(false);
       setQueue((q) => {
@@ -67,79 +124,71 @@ export function StudyView({ deckId }: { deckId?: string }) {
         }
         return rest;
       });
+      requestAnimationFrame(() => focusStudy());
     },
-    [current, rateCard],
+    [rateCard, focusStudy],
   );
+
+  revealedRef.current = revealed;
+  currentRef.current = current;
+  playAudioRef.current = playAudio;
+  revealRef.current = reveal;
+  rateRef.current = handleRate;
 
   useEffect(() => {
     setQueue(getDue(deckId));
     setRevealed(false);
     setDoneCount(0);
+    requestAnimationFrame(() => focusStudy());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
   }, [deckId, cards.length]);
 
+  // Stable listener — reads latest state via refs so hotkeys never go stale
   useEffect(() => {
-    function isTypingTarget(target: EventTarget | null) {
-      if (!(target instanceof HTMLElement)) return false;
-      const tag = target.tagName;
-      return (
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        tag === "SELECT" ||
-        target.isContentEditable
-      );
-    }
-
     function onKey(e: KeyboardEvent) {
       if (isTypingTarget(e.target)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (!current) return;
+      if (!currentRef.current) return;
+      // Ignore IME composition character commits; physical codes still handled below
+      if (e.isComposing && e.code === "") return;
 
-      // Prefer e.code so ratings still work with Caps Lock / CJK IME
-      // (those often set e.key to "Process" instead of "j").
       const code = e.code;
 
-      // Audio
       if (code === "KeyA" || code === "KeyR") {
         e.preventDefault();
-        playAudio();
+        e.stopPropagation();
+        playAudioRef.current();
         return;
       }
 
-      if (!revealed) {
-        if (code === "Space" || code === "Enter" || e.key === "Enter") {
+      if (!revealedRef.current) {
+        // Space / Enter / any rating key flips the card first
+        const wantsReveal =
+          code === "Space" ||
+          code === "Enter" ||
+          e.key === "Enter" ||
+          ratingFromKeyboard(e) != null;
+        if (wantsReveal) {
           e.preventDefault();
-          reveal();
+          e.stopPropagation();
+          revealRef.current();
         }
         return;
       }
 
-      // Home-row ratings: j k l ;
-      if (code === "KeyJ") {
+      const rating = ratingFromKeyboard(e);
+      if (rating) {
         e.preventDefault();
-        handleRate("again");
-        return;
-      }
-      if (code === "KeyK") {
-        e.preventDefault();
-        handleRate("hard");
-        return;
-      }
-      if (code === "KeyL") {
-        e.preventDefault();
-        handleRate("good");
-        return;
-      }
-      if (code === "Semicolon") {
-        e.preventDefault();
-        handleRate("easy");
-        return;
+        e.stopPropagation();
+        rateRef.current(rating);
       }
     }
 
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [current, revealed, handleRate, playAudio, reveal]);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, []);
 
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
@@ -172,7 +221,15 @@ export function StudyView({ deckId }: { deckId?: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col p-8">
+    <div
+      ref={rootRef}
+      tabIndex={0}
+      onMouseDown={(e) => {
+        // Clicking empty study chrome keeps focus here for hotkeys
+        if (e.target === e.currentTarget) focusStudy();
+      }}
+      className="flex h-full flex-col p-8 outline-none"
+    >
       <div className="mb-4">
         <div className="mb-3 h-[3px] overflow-hidden rounded-full bg-stone/30">
           <div
@@ -191,7 +248,21 @@ export function StudyView({ deckId }: { deckId?: string }) {
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center">
-        <div className="rounded-[20px] bg-card px-8 py-10 text-center shadow-sm">
+        <div
+          role="button"
+          tabIndex={-1}
+          onClick={() => {
+            if (!revealed) reveal();
+            else focusStudy();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (!revealed) reveal();
+            }
+          }}
+          className="w-full cursor-pointer rounded-[20px] bg-card px-8 py-10 text-center shadow-sm outline-none"
+        >
           <div className="mb-8 text-[12px] text-stone">
             {current.anki.phase === "new" ||
             (current.anki.phase === "learning" && current.anki.reps === 0)
@@ -219,9 +290,14 @@ export function StudyView({ deckId }: { deckId?: string }) {
                 </div>
                 <button
                   type="button"
+                  tabIndex={-1}
                   aria-label="Play audio"
                   title="Play audio (A)"
-                  onClick={playAudio}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playAudio();
+                  }}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone/50 text-ink transition hover:bg-field"
                 >
                   <PlayIcon />
@@ -250,6 +326,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <PillButton
                 variant="ink"
                 className="w-full py-3.5"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={reveal}
               >
                 Show answer
@@ -257,10 +334,11 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> /{" "}
-                  <kbd className="rounded bg-card px-1.5 py-0.5">Enter</kbd> reveal
+                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd>–
+                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> reveal
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">A</kbd> replay audio
+                  <kbd className="rounded bg-card px-1.5 py-0.5">a</kbd> audio
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
@@ -272,16 +350,20 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <RatingBar card={current} onRate={handleRate} showKeys />
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd> Again
+                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd>/
+                  <kbd className="rounded bg-card px-1.5 py-0.5">1</kbd> Again
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">k</kbd> Hard
+                  <kbd className="rounded bg-card px-1.5 py-0.5">k</kbd>/
+                  <kbd className="rounded bg-card px-1.5 py-0.5">2</kbd> Hard
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">l</kbd> Good
+                  <kbd className="rounded bg-card px-1.5 py-0.5">l</kbd>/
+                  <kbd className="rounded bg-card px-1.5 py-0.5">3</kbd> Good
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> Easy
+                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd>/
+                  <kbd className="rounded bg-card px-1.5 py-0.5">4</kbd> Easy
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit

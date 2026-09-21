@@ -41,6 +41,7 @@ export function RatingBar({
           <button
             key={key}
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => onRate(key)}
             className={cn(
               "flex flex-col items-center justify-center transition active:scale-[0.97]",
