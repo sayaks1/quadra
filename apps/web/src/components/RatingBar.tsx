@@ -26,7 +26,7 @@ export function RatingBar({
   const now = new Date();
   const intervals = previewIntervals(card, now, config);
   const keyByRating: Record<Rating, string> = {
-    again: ",",
+    again: "j",
     hard: "k",
     good: "l",
     easy: ";",

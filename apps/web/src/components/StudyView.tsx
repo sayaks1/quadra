@@ -12,34 +12,18 @@ import { PillButton } from "@/components/ui";
 import { mediaUrl } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
 
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
-}
-
-/** Map a keydown to a study rating. Uses physical codes + Anki 1–4. */
+/** Map a key event to a study rating — j k l ; (and Anki 1–4). */
 function ratingFromKeyboard(e: KeyboardEvent): Rating | null {
   switch (e.code) {
-    // Again: comma is primary (Cursor/vim often steal KeyJ / Digit1)
-    case "Comma":
-    case "KeyH":
     case "KeyJ":
     case "Digit1":
     case "Numpad1":
       return "again";
     case "KeyK":
-    case "Period":
     case "Digit2":
     case "Numpad2":
       return "hard";
     case "KeyL":
-    case "Slash":
     case "Digit3":
     case "Numpad3":
       return "good";
@@ -50,13 +34,24 @@ function ratingFromKeyboard(e: KeyboardEvent): Rating | null {
     default:
       break;
   }
-  // Fallback for odd layouts / synthetic events
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  if (key === "," || key === "h" || key === "j" || key === "1") return "again";
-  if (key === "." || key === "k" || key === "2") return "hard";
-  if (key === "/" || key === "l" || key === "3") return "good";
+  if (key === "j" || key === "1") return "again";
+  if (key === "k" || key === "2") return "hard";
+  if (key === "l" || key === "3") return "good";
   if (key === ";" || key === "4") return "easy";
   return null;
+}
+
+function isRealTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.dataset.quadraStudyHotkeys === "1") return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
 }
 
 export function StudyView({ deckId }: { deckId?: string }) {
@@ -73,7 +68,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const [flash, setFlash] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
 
-  const rootRef = useRef<HTMLDivElement>(null);
+  const hotkeyRef = useRef<HTMLInputElement>(null);
   const revealedRef = useRef(revealed);
   const currentRef = useRef<Card | undefined>(undefined);
   const playAudioRef = useRef<() => void>(() => undefined);
@@ -89,10 +84,10 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const audioUrl = useMemo(() => mediaUrl(current?.audioKey), [current]);
   const imageUrl = useMemo(() => mediaUrl(current?.imageKey), [current]);
 
-  const focusStudy = useCallback(() => {
-    const el = rootRef.current;
+  const focusHotkeys = useCallback(() => {
+    const el = hotkeyRef.current;
     if (!el) return;
-    if (typeof el.focus === "function") el.focus({ preventScroll: true });
+    el.focus({ preventScroll: true });
   }, []);
 
   const playAudio = useCallback(() => {
@@ -106,8 +101,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   const reveal = useCallback(() => {
     setRevealed(true);
-    // Keep keyboard focus on the study surface (not a transient button)
-    requestAnimationFrame(() => focusStudy());
+    requestAnimationFrame(() => focusHotkeys());
     if (current) {
       if (audioUrl) {
         void new Audio(audioUrl).play();
@@ -115,7 +109,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
         void speakFallback(current.term, deck?.language);
       }
     }
-  }, [audioUrl, current, deck?.language, focusStudy]);
+  }, [audioUrl, current, deck?.language, focusHotkeys]);
 
   const handleRate = useCallback(
     (rating: Rating) => {
@@ -158,9 +152,9 @@ export function StudyView({ deckId }: { deckId?: string }) {
         }
         return rest;
       });
-      requestAnimationFrame(() => focusStudy());
+      requestAnimationFrame(() => focusHotkeys());
     },
-    [rateCard, focusStudy],
+    [rateCard, focusHotkeys],
   );
 
   revealedRef.current = revealed;
@@ -169,60 +163,71 @@ export function StudyView({ deckId }: { deckId?: string }) {
   revealRef.current = reveal;
   rateRef.current = handleRate;
 
+  const handleHotkeyEvent = useCallback((e: KeyboardEvent) => {
+    if (isRealTypingTarget(e.target)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!currentRef.current) return;
+
+    const code = e.code;
+
+    if (code === "KeyA" || code === "KeyR") {
+      e.preventDefault();
+      e.stopPropagation();
+      playAudioRef.current();
+      return;
+    }
+
+    if (!revealedRef.current) {
+      const wantsReveal =
+        code === "Space" ||
+        code === "Enter" ||
+        e.key === "Enter" ||
+        ratingFromKeyboard(e) != null;
+      if (wantsReveal) {
+        e.preventDefault();
+        e.stopPropagation();
+        revealRef.current();
+      }
+      return;
+    }
+
+    const rating = ratingFromKeyboard(e);
+    if (rating) {
+      e.preventDefault();
+      e.stopPropagation();
+      rateRef.current(rating);
+    }
+  }, []);
+
   useEffect(() => {
     setQueue(getDue(deckId));
     setRevealed(false);
     setDoneCount(0);
-    requestAnimationFrame(() => focusStudy());
+    requestAnimationFrame(() => focusHotkeys());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
   }, [deckId, cards.length]);
 
-  // Stable listener — reads latest state via refs so hotkeys never go stale
+  // Window capture listener as backup; primary path is the IME-disabled input
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (isTypingTarget(e.target)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (!currentRef.current) return;
-      // Ignore IME composition character commits; physical codes still handled below
-      if (e.isComposing && e.code === "") return;
-
-      const code = e.code;
-
-      if (code === "KeyA" || code === "KeyR") {
-        e.preventDefault();
-        e.stopPropagation();
-        playAudioRef.current();
-        return;
-      }
-
-      if (!revealedRef.current) {
-        // Space / Enter / any rating key flips the card first
-        const wantsReveal =
-          code === "Space" ||
-          code === "Enter" ||
-          e.key === "Enter" ||
-          ratingFromKeyboard(e) != null;
-        if (wantsReveal) {
-          e.preventDefault();
-          e.stopPropagation();
-          revealRef.current();
-        }
-        return;
-      }
-
-      const rating = ratingFromKeyboard(e);
-      if (rating) {
-        e.preventDefault();
-        e.stopPropagation();
-        rateRef.current(rating);
-      }
+      handleHotkeyEvent(e);
     }
-
     window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-    };
-  }, []);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [handleHotkeyEvent]);
+
+  // Keep the hotkey trap focused while studying (unless user is in a real field)
+  useEffect(() => {
+    function onFocusIn(e: FocusEvent) {
+      if (!currentRef.current) return;
+      if (isRealTypingTarget(e.target)) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && t.dataset.quadraStudyHotkeys === "1") return;
+      requestAnimationFrame(() => focusHotkeys());
+    }
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [focusHotkeys]);
 
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
@@ -256,14 +261,37 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   return (
     <div
-      ref={rootRef}
-      tabIndex={0}
+      className="relative flex h-full flex-col p-8"
       onMouseDown={(e) => {
-        // Clicking empty study chrome keeps focus here for hotkeys
-        if (e.target === e.currentTarget) focusStudy();
+        if (isRealTypingTarget(e.target)) return;
+        // Don't steal clicks from buttons — but refocus hotkeys after
+        requestAnimationFrame(() => focusHotkeys());
       }}
-      className="flex h-full flex-col p-8 outline-none"
     >
+      {/*
+        Password + lang=en disables CJK IMEs on most OSes so j/k/l reach us
+        as raw keydowns instead of starting pinyin composition (which is why
+        semicolon worked — it isn't a pinyin letter — while j/1 did not).
+      */}
+      <input
+        ref={hotkeyRef}
+        data-quadra-study-hotkeys="1"
+        type="password"
+        lang="en"
+        inputMode="none"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        aria-label="Study shortcuts"
+        value=""
+        onChange={() => {
+          /* keep empty */
+        }}
+        className="pointer-events-none absolute h-px w-px opacity-0"
+        tabIndex={0}
+      />
+
       <div className="mb-4">
         <div className="mb-3 h-[3px] overflow-hidden rounded-full bg-stone/30">
           <div
@@ -291,13 +319,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
           tabIndex={-1}
           onClick={() => {
             if (!revealed) reveal();
-            else focusStudy();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              if (!revealed) reveal();
-            }
+            else focusHotkeys();
           }}
           className="w-full cursor-pointer rounded-[20px] bg-card px-8 py-10 text-center shadow-sm outline-none"
         >
@@ -309,7 +331,6 @@ export function StudyView({ deckId }: { deckId?: string }) {
                 ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
                 : `Review · seen ${current.anki.reps} times`}
           </div>
-          {/* Front is always English */}
           <div className="font-serif text-[34px] leading-snug text-ink">
             {current.meaning}
           </div>
@@ -386,7 +407,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <RatingBar card={current} onRate={handleRate} showKeys />
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">,</kbd> Again
+                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd> Again
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">k</kbd> Hard
