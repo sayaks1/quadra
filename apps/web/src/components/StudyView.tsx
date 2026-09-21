@@ -95,15 +95,19 @@ export function StudyView({ deckId }: { deckId?: string }) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!current) return;
 
+      // Prefer e.code so ratings still work with Caps Lock / CJK IME
+      // (those often set e.key to "Process" instead of "j").
+      const code = e.code;
+
       // Audio
-      if (e.key === "a" || e.key === "A" || e.key === "r" || e.key === "R") {
+      if (code === "KeyA" || code === "KeyR") {
         e.preventDefault();
         playAudio();
         return;
       }
 
       if (!revealed) {
-        if (e.code === "Space" || e.key === "Enter") {
+        if (code === "Space" || code === "Enter" || e.key === "Enter") {
           e.preventDefault();
           reveal();
         }
@@ -111,31 +115,30 @@ export function StudyView({ deckId }: { deckId?: string }) {
       }
 
       // Home-row ratings: j k l ;
-      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (key === "j") {
+      if (code === "KeyJ") {
         e.preventDefault();
         handleRate("again");
         return;
       }
-      if (key === "k") {
+      if (code === "KeyK") {
         e.preventDefault();
         handleRate("hard");
         return;
       }
-      if (key === "l") {
+      if (code === "KeyL") {
         e.preventDefault();
         handleRate("good");
         return;
       }
-      if (e.key === ";" || e.code === "Semicolon") {
+      if (code === "Semicolon") {
         e.preventDefault();
         handleRate("easy");
         return;
       }
     }
 
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [current, revealed, handleRate, playAudio, reveal]);
 
   if (!current) {
