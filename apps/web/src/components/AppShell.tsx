@@ -81,16 +81,19 @@ export function AppShell() {
         }
 
         if (data.backend === "supabase" && !cloudHasData) {
-          // Seed empty cloud from current local/demo store
-          const { decks, cards, reviews, settings, version } = useQuadra.getState();
-          const put = await fetch("/api/store", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ decks, cards, reviews, settings, version }),
+          // Cloud is intentionally empty — don't re-upload demo seed
+          const settings =
+            data.settings?.anki
+              ? data.settings
+              : useQuadra.getState().settings;
+          replaceStore({
+            decks: [],
+            cards: [],
+            reviews: [],
+            settings,
+            version: data.version ?? 3,
           });
-          useQuadra.setState({
-            syncStatus: put.ok ? "synced" : "offline",
-          });
+          useQuadra.setState({ syncStatus: "synced" });
           return;
         }
 

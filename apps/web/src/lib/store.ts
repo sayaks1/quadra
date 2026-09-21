@@ -216,7 +216,7 @@ export const useQuadra = create<QuadraState>()(
       };
     },
     {
-      name: "quadra-store-v3",
+      name: "quadra-store-v4",
       partialize: (s) => ({
         decks: s.decks,
         cards: s.cards,
