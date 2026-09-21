@@ -86,22 +86,37 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/anki-import", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Import failed");
+      if (!data.count) {
+        throw new Error(
+          data.error ||
+            "No notes were imported. Try exporting again from Anki as an .apkg deck package.",
+        );
+      }
 
-      const fresh = await fetch("/api/store");
-      const remote = await fresh.json();
-      if (remote?.decks && remote?.cards) {
-        useQuadra.getState().replaceStore({
-          decks: remote.decks,
-          cards: remote.cards,
-          reviews: remote.reviews ?? [],
-          settings: remote.settings ?? useQuadra.getState().settings,
-          version: remote.version ?? 3,
-        });
+      // Pull the saved store (cards are already in Supabase / local)
+      let loaded = false;
+      for (let attempt = 0; attempt < 5 && !loaded; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
+        const fresh = await fetch("/api/store");
+        const remote = await fresh.json();
+        const n = Array.isArray(remote?.cards) ? remote.cards.length : 0;
+        if (n > beforeCount) {
+          useQuadra.getState().replaceStore({
+            decks: remote.decks,
+            cards: remote.cards,
+            reviews: remote.reviews ?? [],
+            settings: remote.settings ?? useQuadra.getState().settings,
+            version: remote.version ?? 3,
+          });
+          loaded = true;
+        }
       }
       setStatus(
-        `Imported ${data.count ?? 0} cards${
-          data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""
-        }`,
+        loaded
+          ? `Imported ${data.count ?? 0} cards${
+              data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""
+            }`
+          : `Imported ${data.count ?? 0} cards on the server — refresh if they don’t appear yet.`,
       );
     } catch (e) {
       // The server may have saved cards even if the browser connection dropped

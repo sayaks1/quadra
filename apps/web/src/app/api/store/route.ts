@@ -28,7 +28,6 @@ export async function GET() {
     try {
       const cloud = await pullCloudStore();
       if (cloud) {
-        // Mirror to local disk as a backup cache
         await writeLocal(cloud).catch(() => null);
         return NextResponse.json({ ...cloud, backend: "supabase" as const });
       }
@@ -50,9 +49,50 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const body = (await req.json()) as QuadraStore;
+  const body = (await req.json()) as QuadraStore & { force?: boolean };
+  const force =
+    body.force === true || req.headers.get("x-quadra-force") === "1";
 
-  // Always keep a local mirror
+  const incomingCards = Array.isArray(body.cards) ? body.cards.length : 0;
+  const incomingDecks = Array.isArray(body.decks) ? body.decks.length : 0;
+
+  // Guard: never let a blank/partial browser tab wipe a populated cloud store
+  // (common right after Anki import when local state is still empty).
+  if (!force && isCloudConfigured()) {
+    try {
+      const cloud = await pullCloudStore();
+      const cloudCards = cloud?.cards?.length ?? 0;
+      const cloudDecks = cloud?.decks?.length ?? 0;
+      if (cloudCards > 0 && incomingCards === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            skipped: true,
+            reason: "refusing to overwrite cloud cards with an empty store",
+            backend: "supabase" as const,
+            cloudCards,
+          },
+          { status: 409 },
+        );
+      }
+      if (cloudCards > 0 && incomingCards < cloudCards * 0.5 && incomingDecks <= cloudDecks) {
+        return NextResponse.json(
+          {
+            ok: false,
+            skipped: true,
+            reason: "refusing to shrink cloud store by more than 50% without force",
+            backend: "supabase" as const,
+            cloudCards,
+            incomingCards,
+          },
+          { status: 409 },
+        );
+      }
+    } catch {
+      // If we can't read cloud, fall through and write local at least
+    }
+  }
+
   await writeLocal(body);
 
   if (isCloudConfigured()) {

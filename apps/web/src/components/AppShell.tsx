@@ -135,6 +135,26 @@ export function AppShell() {
         })
           .then(async (res) => {
             const data = await res.json().catch(() => ({}));
+            if (res.status === 409 && data.skipped) {
+              // Another tab/server has more data — pull instead of fighting
+              try {
+                const fresh = await fetch("/api/store");
+                const remote = await fresh.json();
+                if (Array.isArray(remote.cards) && remote.cards.length > cards.length) {
+                  useQuadra.getState().replaceStore({
+                    decks: remote.decks,
+                    cards: remote.cards,
+                    reviews: remote.reviews ?? [],
+                    settings: remote.settings ?? settings,
+                    version: remote.version ?? version,
+                  });
+                }
+              } catch {
+                /* ignore */
+              }
+              useQuadra.setState({ syncStatus: "synced" });
+              return;
+            }
             if (data.backend === "supabase" || data.backend === "local") {
               useQuadra.getState().setSyncBackend(data.backend);
             }

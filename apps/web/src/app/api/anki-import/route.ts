@@ -203,3 +203,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
+// Keep the route alive for large packages
+export const dynamic = "force-dynamic";
+
