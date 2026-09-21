@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { decompress as decompressZstd } from "fzstd";
 import type { ProposedCard } from "@quadra/shared";
 
 export interface AnkiImportResult {
@@ -50,6 +51,7 @@ function pathBasename(p: string) {
 export async function parseApkgWithSql(
   file: ArrayBuffer,
   SQL: SqlJsStatic,
+  options?: { loadMedia?: boolean },
 ): Promise<AnkiImportResult> {
   const zip = await JSZip.loadAsync(file);
   const mediaFile = zip.file("media");
@@ -69,36 +71,18 @@ export async function parseApkgWithSql(
   }
 
   const media: Record<string, Uint8Array> = {};
-  await Promise.all(
-    Object.keys(mediaMap).map(async (key) => {
-      const f = zip.file(key);
-      if (f) media[key] = await f.async("uint8array");
-    }),
-  );
-
-  // Newer Anki may only ship collection.anki21b (zstd) — try common names
-  const dbFile =
-    zip.file("collection.anki21") ||
-    zip.file("collection.anki2") ||
-    zip.file("collection.anki21b");
-
-  if (!dbFile) {
-    const names = Object.keys(zip.files).slice(0, 20).join(", ");
-    throw new Error(
-      `No Anki collection database found in .apkg (saw: ${names || "empty"})`,
+  if (options?.loadMedia !== false) {
+    await Promise.all(
+      Object.keys(mediaMap).map(async (key) => {
+        const f = zip.file(key);
+        if (f) media[key] = await f.async("uint8array");
+      }),
     );
   }
 
-  const bytes = await dbFile.async("uint8array");
-  // collection.anki21b is zstd-compressed; detect magic
-  if (dbFile.name.endsWith("anki21b") || isZstd(bytes)) {
-    throw new Error(
-      "This .apkg uses a compressed Anki 23+ database (anki21b). Re-export from Anki with “Support older Anki versions” enabled, or export as .anki2-compatible package.",
-    );
-  }
-
-  const db = new SQL.Database(bytes);
+  const opened = await openBestCollection(zip, SQL);
   const cards: ProposedCard[] = [];
+  const db = opened.db;
   try {
     const result = db.exec("SELECT flds FROM notes");
     if (result[0]) {
@@ -107,12 +91,11 @@ export async function parseApkgWithSql(
         const rawFields = rawFlds.split("\x1f");
         const fields = rawFields.map(stripHtml);
 
-        // Prefer English-looking field as meaning when present
-        let term = fields[0] || "";
-        let meaning = fields[1] || fields.slice(1).join(" — ");
-        let reading = fields[2] || "";
-        // Many JP decks: Expression / Meaning / Reading
+        const term = fields[0] || "";
+        const meaning = fields[1] || fields.slice(1).join(" — ");
+        const reading = fields[2] || "";
         if (!term && !meaning) continue;
+        if (UPGRADE_STUB.test(term) || UPGRADE_STUB.test(rawFlds)) continue;
 
         let imageKey: string | null = null;
         let audioKey: string | null = null;
@@ -164,7 +147,6 @@ export async function parseApkgWithSql(
 }
 
 function isZstd(bytes: Uint8Array) {
-  // zstd magic: 28 B5 2F FD
   return (
     bytes.length >= 4 &&
     bytes[0] === 0x28 &&
@@ -172,6 +154,54 @@ function isZstd(bytes: Uint8Array) {
     bytes[2] === 0x2f &&
     bytes[3] === 0xfd
   );
+}
+
+const UPGRADE_STUB = /please update to the latest anki version/i;
+
+async function openBestCollection(zip: JSZip, SQL: SqlJsStatic) {
+  const names = Object.keys(zip.files).filter((name) =>
+    /collection\.anki2(1b?)?$/i.test(name.split("/").pop() || name),
+  );
+  if (!names.length) {
+    const sample = Object.keys(zip.files).slice(0, 12).join(", ");
+    throw new Error(`No Anki collection database found in .apkg (saw: ${sample || "empty"})`);
+  }
+
+  let best: { db: InstanceType<SqlJsStatic["Database"]>; notes: number } | null = null;
+
+  for (const name of names) {
+    const entry = zip.file(name);
+    if (!entry) continue;
+    let bytes = await entry.async("uint8array");
+    try {
+      if (name.endsWith("anki21b") || isZstd(bytes)) {
+        bytes = decompressZstd(bytes);
+      }
+      const db = new SQL.Database(bytes);
+      const result = db.exec("SELECT flds FROM notes");
+      const rows = result[0]?.values ?? [];
+      const real = rows.filter((row) => !UPGRADE_STUB.test(String(row[0] ?? "")));
+      if (real.length === 0) {
+        db.close();
+        continue;
+      }
+      if (!best || real.length > best.notes) {
+        best?.db.close();
+        best = { db, notes: real.length };
+      } else {
+        db.close();
+      }
+    } catch (err) {
+      console.error("skipping collection", name, err);
+    }
+  }
+
+  if (!best) {
+    throw new Error(
+      "Could not read notes from this .apkg. Export the deck again from Anki (File → Export → Anki Deck Package) and include scheduling if you can.",
+    );
+  }
+  return best;
 }
 
 /** Browser entry — loads sql.js WASM from same origin (/sql-wasm.wasm). */

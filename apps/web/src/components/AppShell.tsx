@@ -120,6 +120,12 @@ export function AppShell() {
       }
       if (syncTimer.current) window.clearTimeout(syncTimer.current);
       syncTimer.current = window.setTimeout(() => {
+        if (
+          typeof window !== "undefined" &&
+          (window as unknown as { __quadraPauseSync?: boolean }).__quadraPauseSync
+        ) {
+          return;
+        }
         const { decks, cards, reviews, settings, version } = useQuadra.getState();
         useQuadra.setState({ syncStatus: "syncing" });
         void fetch("/api/store", {

@@ -8,7 +8,6 @@ import { useQuadra } from "@/lib/store";
 export function AddFlowModal({ onClose }: { onClose: () => void }) {
   const decksRaw = useQuadra((s) => s.decks);
   const upsertCard = useQuadra((s) => s.upsertCard);
-  const importCards = useQuadra((s) => s.importCards);
   const addDeck = useQuadra((s) => s.addDeck);
   const decks = activeDecks(decksRaw);
   const [tab, setTab] = useState<"manual" | "anki" | "ai">("manual");
@@ -68,26 +67,65 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
   async function onApkg(file: File) {
     setBusy(true);
     setStatus(null);
+    (window as unknown as { __quadraPauseSync?: boolean }).__quadraPauseSync = true;
+    const beforeCount = useQuadra.getState().cards.length;
     try {
       if (!file.name.toLowerCase().endsWith(".apkg")) {
         throw new Error("Please choose an Anki .apkg file");
       }
       const target = await ensureDeck(file.name);
-      setStatus("Parsing package…");
+      const deckName =
+        useQuadra.getState().decks.find((d) => d.id === target)?.name ||
+        file.name.replace(/\.apkg$/i, "");
+      setStatus("Importing… large decks can take a minute. You can leave this open.");
 
       const form = new FormData();
       form.append("file", file);
+      form.append("deckId", target);
+      form.append("deckName", deckName);
       const res = await fetch("/api/anki-import", { method: "POST", body: form });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Import failed");
 
-      const count = importCards(target, data.cards ?? [], "anki");
+      const fresh = await fetch("/api/store");
+      const remote = await fresh.json();
+      if (remote?.decks && remote?.cards) {
+        useQuadra.getState().replaceStore({
+          decks: remote.decks,
+          cards: remote.cards,
+          reviews: remote.reviews ?? [],
+          settings: remote.settings ?? useQuadra.getState().settings,
+          version: remote.version ?? 3,
+        });
+      }
       setStatus(
-        `Imported ${count} cards${data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""}`,
+        `Imported ${data.count ?? 0} cards${
+          data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""
+        }`,
       );
     } catch (e) {
+      // The server may have saved cards even if the browser connection dropped
+      try {
+        const fresh = await fetch("/api/store");
+        const remote = await fresh.json();
+        const n = Array.isArray(remote?.cards) ? remote.cards.length : 0;
+        if (n > beforeCount && remote?.decks) {
+          useQuadra.getState().replaceStore({
+            decks: remote.decks,
+            cards: remote.cards,
+            reviews: remote.reviews ?? [],
+            settings: remote.settings ?? useQuadra.getState().settings,
+            version: remote.version ?? 3,
+          });
+          setStatus(`Import finished on the server (${n} cards). Refresh if the list looks stale.`);
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
       setStatus(e instanceof Error ? e.message : "Import failed");
     } finally {
+      (window as unknown as { __quadraPauseSync?: boolean }).__quadraPauseSync = false;
       setBusy(false);
     }
   }

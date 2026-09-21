@@ -173,8 +173,7 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     if (error) throw new Error(error.message);
   }
   if (cardRows.length) {
-    const { error } = await supabase.from("cards").upsert(cardRows);
-    if (error) throw new Error(error.message);
+    await upsertInChunks(supabase, "cards", cardRows);
   }
   if (reviewRows.length) {
     const { error } = await supabase.from("reviews").upsert(reviewRows);
@@ -188,4 +187,70 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     updated_at: new Date().toISOString(),
   });
   if (settingsError) throw new Error(settingsError.message);
+}
+
+/** Insert/update without wiping existing rows. Chunked so large decks don't exceed request limits. */
+export async function upsertCloudPieces(input: {
+  decks?: Deck[];
+  cards?: Card[];
+  settings?: QuadraSettings;
+  version?: number;
+}): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase is not configured");
+
+  if (input.decks?.length) {
+    const deckRows = input.decks.map((d) => ({
+      id: d.id,
+      name: d.name,
+      language: d.language,
+      created_at: d.createdAt,
+      updated_at: d.updatedAt,
+      deleted_at: d.deletedAt ?? null,
+    }));
+    const { error } = await supabase.from("decks").upsert(deckRows);
+    if (error) throw new Error(error.message);
+  }
+
+  if (input.cards?.length) {
+    const cardRows = input.cards.map((c) => ({
+      id: c.id,
+      deck_id: c.deckId,
+      term: c.term,
+      reading: c.reading,
+      meaning: c.meaning,
+      notes: c.notes,
+      image_key: c.imageKey ?? null,
+      audio_key: c.audioKey ?? null,
+      audio_source: c.audioSource,
+      anki: c.anki,
+      created_at: c.createdAt,
+      updated_at: c.updatedAt,
+      deleted_at: c.deletedAt ?? null,
+    }));
+    await upsertInChunks(supabase, "cards", cardRows);
+  }
+
+  if (input.settings) {
+    const { error } = await supabase.from("settings").upsert({
+      id: "default",
+      payload: input.settings,
+      version: input.version ?? 3,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+  }
+}
+
+async function upsertInChunks(
+  supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  table: "cards",
+  rows: Record<string, unknown>[],
+  size = 100,
+) {
+  for (let i = 0; i < rows.length; i += size) {
+    const slice = rows.slice(i, i + size);
+    const { error } = await supabase.from(table).upsert(slice);
+    if (error) throw new Error(error.message);
+  }
 }
