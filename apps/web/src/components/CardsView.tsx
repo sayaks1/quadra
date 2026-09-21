@@ -164,10 +164,11 @@ export function CardsView({
                       )}
                     />
                     <span className="min-w-0 flex-1 truncate font-serif text-[20px]">
-                      {card.term}
+                      {card.meaning}
                       <span className="font-sans text-[14.5px] text-stone">
                         {" "}
-                        — {card.meaning}
+                        — {card.term}
+                        {card.reading ? ` (${card.reading})` : ""}
                       </span>
                     </span>
                     {card.imageKey ? (

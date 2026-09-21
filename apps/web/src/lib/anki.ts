@@ -49,6 +49,110 @@ function pathBasename(p: string) {
   return p.split(/[\\/]/).pop() || p;
 }
 
+const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
+const LATIN_RE = /[A-Za-z]/;
+
+function scriptScore(text: string) {
+  const cjk = (text.match(new RegExp(CJK_RE.source, "g")) || []).length;
+  const latin = (text.match(new RegExp(LATIN_RE.source, "g")) || []).length;
+  return { cjk, latin };
+}
+
+/** True when the text is primarily English / Latin (flashcard front). */
+function looksEnglish(text: string) {
+  const { cjk, latin } = scriptScore(text);
+  return latin > 0 && latin >= Math.max(1, cjk) * 2;
+}
+
+/** True when the text contains CJK / kana (target-language side). */
+function looksTargetLanguage(text: string) {
+  return CJK_RE.test(text);
+}
+
+/**
+ * Split a target-language Anki field into word + optional reading + example notes.
+ * Supports "鱼 (yú)", "xián (咸)", and multi-line example blocks.
+ */
+function splitTargetField(text: string): { term: string; reading: string; notes: string } {
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const head = lines[0] || text.trim();
+  let term = head;
+  let reading = "";
+
+  const paren = head.match(/^(.+?)\s*[（(]([^）)]+)[）)]\s*$/);
+  if (paren) {
+    const outer = paren[1]!.trim();
+    const inner = paren[2]!.trim();
+    if (looksTargetLanguage(outer) && !looksTargetLanguage(inner)) {
+      term = outer;
+      reading = inner;
+    } else if (!looksTargetLanguage(outer) && looksTargetLanguage(inner)) {
+      term = inner;
+      reading = outer;
+    }
+  }
+
+  return { term, reading, notes: lines.slice(1).join("\n") };
+}
+
+/**
+ * Quadra stores English in `meaning` (study front) and the target word in `term` (back).
+ * Anki notes vary — English-first or word-first — so detect and normalize.
+ */
+function mapAnkiFields(fields: string[]): {
+  term: string;
+  reading: string;
+  meaning: string;
+  notes: string;
+} {
+  const a = fields[0] || "";
+  const b = fields[1] || "";
+  const c = fields[2] || "";
+  const rest = fields.slice(3).filter(Boolean).join("\n");
+
+  // English front / target back (common for this Chinese deck)
+  if (a && b && looksEnglish(a) && looksTargetLanguage(b)) {
+    const target = splitTargetField(b);
+    return {
+      meaning: a,
+      term: target.term,
+      reading: target.reading || c,
+      notes: [target.notes, rest].filter(Boolean).join("\n"),
+    };
+  }
+
+  // Target front / English back (classic vocab note)
+  if (a && b && looksTargetLanguage(a) && looksEnglish(b)) {
+    const target = splitTargetField(a);
+    return {
+      term: target.term,
+      reading: target.reading || c,
+      meaning: b,
+      notes: [target.notes, rest].filter(Boolean).join("\n"),
+    };
+  }
+
+  // Fallback: assume field0 = word, field1 = English
+  if (b) {
+    return {
+      term: a,
+      reading: c,
+      meaning: b,
+      notes: rest,
+    };
+  }
+
+  return {
+    term: a,
+    reading: c,
+    meaning: fields.slice(1).join(" — "),
+    notes: rest,
+  };
+}
+
 /** Shared .apkg parser — pass a ready sql.js module (browser or Node). */
 export async function parseApkgWithSql(
   file: ArrayBuffer,
@@ -93,11 +197,15 @@ export async function parseApkgWithSql(
       const rawFields = rawFlds.split("\x1f");
       const fields = rawFields.map(stripHtml);
 
-      const term = fields[0] || "";
-      const meaning = fields[1] || fields.slice(1).join(" — ");
-      const reading = fields[2] || "";
-      if (!term && !meaning) continue;
-      if (UPGRADE_STUB.test(term) || UPGRADE_STUB.test(rawFlds)) continue;
+      const mapped = mapAnkiFields(fields);
+      if (!mapped.term && !mapped.meaning) continue;
+      if (
+        UPGRADE_STUB.test(mapped.term) ||
+        UPGRADE_STUB.test(mapped.meaning) ||
+        UPGRADE_STUB.test(rawFlds)
+      ) {
+        continue;
+      }
 
       let imageKey: string | null = null;
       let audioKey: string | null = null;
@@ -125,10 +233,10 @@ export async function parseApkgWithSql(
       }
 
       cards.push({
-        term,
-        reading,
-        meaning,
-        notes: fields.slice(3).filter(Boolean).join("\n"),
+        term: mapped.term,
+        reading: mapped.reading,
+        meaning: mapped.meaning,
+        notes: mapped.notes,
         imageKey,
         audioKey,
         anki: row.scheduling ? schedulingFromAnki(row.scheduling, crt) : undefined,
