@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { activeDecks, type ProposedCard } from "@quadra/shared";
-import { parseApkg } from "@/lib/anki";
 import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
 
@@ -10,6 +9,7 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
   const decksRaw = useQuadra((s) => s.decks);
   const upsertCard = useQuadra((s) => s.upsertCard);
   const importCards = useQuadra((s) => s.importCards);
+  const addDeck = useQuadra((s) => s.addDeck);
   const decks = activeDecks(decksRaw);
   const [tab, setTab] = useState<"manual" | "anki" | "ai">("manual");
   const [deckId, setDeckId] = useState(decks[0]?.id ?? "");
@@ -26,11 +26,28 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
 
   const current = proposals[proposalIndex];
 
+  useEffect(() => {
+    if (!deckId && decks[0]?.id) setDeckId(decks[0].id);
+  }, [decks, deckId]);
+
+  async function ensureDeck(preferredName?: string) {
+    if (deckId && decks.some((d) => d.id === deckId)) return deckId;
+    if (decks[0]?.id) {
+      setDeckId(decks[0].id);
+      return decks[0].id;
+    }
+    const name = (preferredName || "Anki import").replace(/\.apkg$/i, "").trim() || "Anki import";
+    const id = addDeck(name, "ja");
+    setDeckId(id);
+    return id;
+  }
+
   async function runAi() {
     setBusy(true);
     setStatus(null);
     try {
-      const deck = decks.find((d) => d.id === deckId);
+      const target = await ensureDeck("AI draft");
+      const deck = useQuadra.getState().decks.find((d) => d.id === target);
       const res = await fetch("/api/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,28 +69,22 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setStatus(null);
     try {
-      const buf = await file.arrayBuffer();
-      const result = await parseApkg(buf);
-      // Persist media to server when possible
-      for (const [key, bytes] of Object.entries(result.media)) {
-        const name = result.mediaMap[key] || key;
-        const lower = String(name).toLowerCase();
-        const contentType = lower.match(/\.(png|jpe?g|gif|webp|svg)$/)
-          ? `image/${lower.endsWith(".jpg") || lower.endsWith(".jpeg") ? "jpeg" : lower.split(".").pop()}`
-          : lower.endsWith(".mp3")
-            ? "audio/mpeg"
-            : "application/octet-stream";
-        await fetch("/api/media/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": contentType,
-            "x-filename": name,
-          },
-          body: new Blob([bytes.buffer as ArrayBuffer], { type: contentType }),
-        }).catch(() => null);
+      if (!file.name.toLowerCase().endsWith(".apkg")) {
+        throw new Error("Please choose an Anki .apkg file");
       }
-      const count = importCards(deckId, result.cards, "anki");
-      setStatus(`Imported ${count} cards from Anki`);
+      const target = await ensureDeck(file.name);
+      setStatus("Parsing package…");
+
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/anki-import", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+
+      const count = importCards(target, data.cards ?? [], "anki");
+      setStatus(
+        `Imported ${count} cards${data.mediaUploaded ? ` · ${data.mediaUploaded} media files` : ""}`,
+      );
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Import failed");
     } finally {
@@ -267,17 +278,21 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-4">
               <p className="text-[14.5px] text-stone">
                 Drop an Anki <code>.apkg</code> export. Images and audio are preserved when
-                present.
+                present. If you have no deck yet, one is created from the file name.
               </p>
               <input
                 type="file"
-                accept=".apkg"
+                accept=".apkg,application/octet-stream"
                 disabled={busy}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) void onApkg(f);
+                  e.target.value = "";
                 }}
               />
+              {busy ? (
+                <p className="text-[13px] text-stone">Working — large decks can take a minute…</p>
+              ) : null}
             </div>
           ) : null}
 
