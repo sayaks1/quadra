@@ -26,15 +26,20 @@ function isTypingTarget(target: EventTarget | null) {
 /** Map a keydown to a study rating. Uses physical codes + Anki 1–4. */
 function ratingFromKeyboard(e: KeyboardEvent): Rating | null {
   switch (e.code) {
+    // Again: comma is primary (Cursor/vim often steal KeyJ / Digit1)
+    case "Comma":
+    case "KeyH":
     case "KeyJ":
     case "Digit1":
     case "Numpad1":
       return "again";
     case "KeyK":
+    case "Period":
     case "Digit2":
     case "Numpad2":
       return "hard";
     case "KeyL":
+    case "Slash":
     case "Digit3":
     case "Numpad3":
       return "good";
@@ -47,9 +52,9 @@ function ratingFromKeyboard(e: KeyboardEvent): Rating | null {
   }
   // Fallback for odd layouts / synthetic events
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  if (key === "j" || key === "1") return "again";
-  if (key === "k" || key === "2") return "hard";
-  if (key === "l" || key === "3") return "good";
+  if (key === "," || key === "h" || key === "j" || key === "1") return "again";
+  if (key === "." || key === "k" || key === "2") return "hard";
+  if (key === "/" || key === "l" || key === "3") return "good";
   if (key === ";" || key === "4") return "easy";
   return null;
 }
@@ -65,6 +70,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const [revealed, setRevealed] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
   const [startedAt] = useState(() => Date.now());
+  const [flash, setFlash] = useState<string | null>(null);
+  const flashTimer = useRef<number | null>(null);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const revealedRef = useRef(revealed);
@@ -115,6 +122,33 @@ export function StudyView({ deckId }: { deckId?: string }) {
       const card = currentRef.current;
       if (!card) return;
       const updated = rateCard(card.id, rating);
+      const labels: Record<Rating, string> = {
+        again: "Again",
+        hard: "Hard",
+        good: "Good",
+        easy: "Easy",
+      };
+      let detail = labels[rating];
+      if (updated) {
+        if (shouldRequeueInSession(updated)) {
+          const due = new Date(updated.anki.due);
+          const mins = Math.max(
+            1,
+            Math.round((due.getTime() - Date.now()) / 60000),
+          );
+          detail = `${labels[rating]} · back in ${mins}m`;
+        } else {
+          const days = updated.anki.intervalDays;
+          detail =
+            days < 1
+              ? labels[rating]
+              : `${labels[rating]} · next in ${days}d`;
+        }
+      }
+      if (flashTimer.current) window.clearTimeout(flashTimer.current);
+      setFlash(detail);
+      flashTimer.current = window.setTimeout(() => setFlash(null), 1200);
+
       setDoneCount((n) => n + 1);
       setRevealed(false);
       setQueue((q) => {
@@ -240,9 +274,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
         <div className="flex items-center justify-between text-[14.5px]">
           <span className="font-medium">{deck?.name ?? "All decks"}</span>
           <span className="text-stone">
-            {stats
-              ? `${stats.neu} new · ${stats.learning} learning · ${queue.length} due`
-              : `${queue.length} left`}
+            {flash ? (
+              <span className="font-medium text-oxblood">{flash}</span>
+            ) : stats ? (
+              `${stats.neu} new · ${stats.learning} learning · ${queue.length} due`
+            ) : (
+              `${queue.length} left`
+            )}
           </span>
         </div>
       </div>
@@ -333,9 +371,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
               </PillButton>
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> /{" "}
-                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd>–
-                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> reveal
+                  <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> reveal
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">a</kbd> audio
@@ -350,20 +386,16 @@ export function StudyView({ deckId }: { deckId?: string }) {
               <RatingBar card={current} onRate={handleRate} showKeys />
               <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd>/
-                  <kbd className="rounded bg-card px-1.5 py-0.5">1</kbd> Again
+                  <kbd className="rounded bg-card px-1.5 py-0.5">,</kbd> Again
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">k</kbd>/
-                  <kbd className="rounded bg-card px-1.5 py-0.5">2</kbd> Hard
+                  <kbd className="rounded bg-card px-1.5 py-0.5">k</kbd> Hard
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">l</kbd>/
-                  <kbd className="rounded bg-card px-1.5 py-0.5">3</kbd> Good
+                  <kbd className="rounded bg-card px-1.5 py-0.5">l</kbd> Good
                 </span>
                 <span>
-                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd>/
-                  <kbd className="rounded bg-card px-1.5 py-0.5">4</kbd> Easy
+                  <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> Easy
                 </span>
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
