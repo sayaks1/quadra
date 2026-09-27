@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   activeDecks,
   deckStats,
   dueCards,
 } from "@quadra/shared";
+import { AddDeckModal } from "@/components/AddDeckModal";
 import { QuadraMark } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
 import { cn } from "@/lib/cn";
@@ -16,8 +18,8 @@ export function Sidebar() {
   const setRoute = useQuadra((s) => s.setRoute);
   const syncStatus = useQuadra((s) => s.syncStatus);
   const syncBackend = useQuadra((s) => s.syncBackend);
-  const addDeck = useQuadra((s) => s.addDeck);
   const decks = activeDecks(decksRaw);
+  const [addingDeck, setAddingDeck] = useState(false);
 
   const selectedDeckId = route.name === "deck" || route.name === "study" ? route.deckId : undefined;
   const settingsActive = route.name === "settings";
@@ -41,27 +43,14 @@ export function Sidebar() {
         </span>
         <button
           type="button"
-          className="text-stone hover:text-ink"
-          aria-label="Add deck"
-          onClick={() => {
-            const name = window.prompt("Deck name", "New deck");
-            if (!name?.trim()) return;
-            const lang = window.prompt("Language code (ko/ja/zh/en/other)", "ja") || "other";
-            const id = addDeck(
-              name.trim(),
-              (["ko", "ja", "zh", "en", "other"].includes(lang) ? lang : "other") as
-                | "ko"
-                | "ja"
-                | "zh"
-                | "en"
-                | "other",
-            );
-            setRoute({ name: "deck", deckId: id, tab: "cards" });
-          }}
+          className="rounded-full px-2 py-0.5 text-[12px] font-medium text-oxblood transition hover:bg-card"
+          aria-label="New deck"
+          onClick={() => setAddingDeck(true)}
         >
-          +
+          + New
         </button>
       </div>
+      {addingDeck ? <AddDeckModal onClose={() => setAddingDeck(false)} /> : null}
 
       <nav className="flex flex-1 flex-col gap-1 overflow-auto">
         <NavRow
