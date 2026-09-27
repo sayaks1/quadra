@@ -25,13 +25,14 @@ export function DeckPageHeader({
   const setRoute = useQuadra((s) => s.setRoute);
 
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <h1 className="min-w-0 font-serif text-[34px] font-normal tracking-tight">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <h1 className="hidden min-w-0 font-serif text-[34px] font-normal tracking-tight md:block">
         {title}
       </h1>
       <div className="flex flex-wrap items-center gap-2">
         <PillButton
           variant="oxblood"
+          className="flex-1 sm:flex-none"
           onClick={() => setRoute({ name: "study", deckId })}
         >
           Study

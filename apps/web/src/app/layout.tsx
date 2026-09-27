@@ -19,6 +19,18 @@ const interTight = Inter_Tight({
 export const metadata: Metadata = {
   title: "Quadra",
   description: "Multilingual vocabulary — study Korean, Japanese, and Chinese",
+  appleWebApp: {
+    capable: true,
+    title: "Quadra",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+  themeColor: "#e9e9e6",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

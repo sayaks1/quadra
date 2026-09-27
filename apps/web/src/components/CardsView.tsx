@@ -66,7 +66,7 @@ export function CardsView({
   const stats = deckId ? deckStats(cards, deckId) : null;
 
   return (
-    <div className="flex h-full flex-col p-8">
+    <div className="flex h-full flex-col p-5 md:p-8">
       {global ? (
         <div className="mb-6 flex items-center justify-between gap-4">
           <h1 className="font-serif text-[34px]">Search</h1>

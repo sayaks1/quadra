@@ -15,8 +15,10 @@ import { useQuadra } from "@/lib/store";
 export function AppShell() {
   const route = useQuadra((s) => s.route);
   const setRoute = useQuadra((s) => s.setRoute);
+  const decks = useQuadra((s) => s.decks);
   const [editing, setEditing] = useState<Card | null>(null);
   const [adding, setAdding] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [cachedDeckId, setCachedDeckId] = useState<string | undefined>();
   const syncTimer = useRef<number | null>(null);
 
@@ -192,11 +194,37 @@ export function AppShell() {
   const deckId =
     route.name === "deck" ? route.deckId : cachedDeckId;
 
+  const title =
+    route.name === "today"
+      ? "Today"
+      : route.name === "search"
+        ? "Search"
+        : route.name === "settings"
+          ? "Settings"
+          : route.name === "study"
+            ? "Study"
+            : route.name === "deck"
+              ? (decks.find((d) => d.id === route.deckId)?.name ?? "Deck")
+              : "Quadra";
+
   return (
-    <div className="flex min-h-screen bg-field p-4 md:p-6">
-      <div className="mx-auto flex h-[calc(100vh-2rem)] w-full max-w-[1280px] overflow-hidden rounded-[26px] bg-field shadow-sm md:h-[calc(100vh-3rem)]">
-        <Sidebar />
-        <main className="relative min-w-0 flex-1 overflow-auto rounded-[26px] bg-[#f3f3f0]">
+    <div className="flex min-h-[100dvh] bg-field p-0 md:p-6">
+      <div className="mx-auto flex h-[100dvh] w-full max-w-[1280px] overflow-hidden bg-field md:h-[calc(100dvh-3rem)] md:rounded-[26px] md:shadow-sm">
+        <Sidebar mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile top bar */}
+          <header className="flex items-center gap-3 border-b border-stone/20 bg-[#f3f3f0] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={() => setMenuOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink shadow-sm"
+            >
+              <MenuIcon />
+            </button>
+            <div className="min-w-0 flex-1 truncate font-serif text-[22px]">{title}</div>
+          </header>
+          <main className="relative min-w-0 flex-1 overflow-auto bg-[#f3f3f0] pb-[env(safe-area-inset-bottom)] md:rounded-[26px]">
           {/* Keep primary tabs mounted to avoid remount flicker when switching. */}
           <div className={showToday ? "h-full" : "hidden"} aria-hidden={!showToday}>
             <TodayView onOpenAdd={() => setAdding(true)} />
@@ -235,10 +263,24 @@ export function AppShell() {
           ) : null}
           {/* Study still mounts fresh so each session starts clean. */}
           {showStudy ? <StudyView deckId={studyDeckId} /> : null}
-        </main>
+          </main>
+        </div>
       </div>
       <EditCardModal card={editing} onClose={() => setEditing(null)} />
       {adding ? <AddFlowModal onClose={() => setAdding(false)} /> : null}
     </div>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden>
+      <path
+        d="M1 1h16M1 7h16M1 13h16"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

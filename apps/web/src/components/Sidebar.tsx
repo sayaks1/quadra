@@ -1,17 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   activeDecks,
   deckStats,
   dueCards,
+  type Deck,
+  type Card,
 } from "@quadra/shared";
 import { AddDeckModal } from "@/components/AddDeckModal";
 import { QuadraMark } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
 import { cn } from "@/lib/cn";
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen = false,
+  onMobileClose,
+}: {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}) {
+  const route = useQuadra((s) => s.route);
+
+  useEffect(() => {
+    onMobileClose?.();
+    // Close drawer whenever the route changes (mobile nav tap)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally route-driven
+  }, [route]);
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden h-full w-[240px] shrink-0 flex-col px-4 py-5 md:flex">
+        <SidebarNav onNavigate={onMobileClose} />
+      </aside>
+
+      {/* Mobile drawer */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 md:hidden",
+          mobileOpen ? "pointer-events-auto" : "pointer-events-none",
+        )}
+      >
+        <button
+          type="button"
+          aria-label="Close menu"
+          className={cn(
+            "absolute inset-0 bg-ink/30 transition-opacity",
+            mobileOpen ? "opacity-100" : "opacity-0",
+          )}
+          onClick={onMobileClose}
+        />
+        <aside
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-[min(280px,86vw)] flex-col bg-field px-4 py-5 pt-[max(1.25rem,env(safe-area-inset-top))] shadow-xl transition-transform",
+            mobileOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          <SidebarNav onNavigate={onMobileClose} />
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const decksRaw = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const route = useQuadra((s) => s.route);
@@ -24,12 +77,17 @@ export function Sidebar() {
   const selectedDeckId = route.name === "deck" || route.name === "study" ? route.deckId : undefined;
   const settingsActive = route.name === "settings";
 
+  function go(next: Parameters<typeof setRoute>[0]) {
+    setRoute(next);
+    onNavigate?.();
+  }
+
   return (
-    <aside className="flex h-full w-[240px] shrink-0 flex-col px-4 py-5">
+    <>
       <button
         type="button"
         className="mb-8 flex items-center gap-2 text-left"
-        onClick={() => setRoute({ name: "today" })}
+        onClick={() => go({ name: "today" })}
       >
         <QuadraMark />
         <span className="font-serif text-[28px] font-normal tracking-tight text-ink">
@@ -56,23 +114,23 @@ export function Sidebar() {
         <NavRow
           active={route.name === "today"}
           label="Today"
-          onClick={() => setRoute({ name: "today" })}
+          onClick={() => go({ name: "today" })}
         />
         <NavRow
           active={route.name === "search"}
           label="Search"
-          onClick={() => setRoute({ name: "search", query: "", addedToday: false })}
+          onClick={() => go({ name: "search", query: "", addedToday: false })}
         />
         <div className="my-2 h-px bg-stone/30" />
-        {decks.map((deck) => {
-          const stats = deckStats(cards, deck.id);
+        {decks.map((deck: Deck) => {
+          const stats = deckStats(cards as Card[], deck.id);
           return (
             <NavRow
               key={deck.id}
               active={selectedDeckId === deck.id}
               label={deck.name}
               count={stats.due || undefined}
-              onClick={() => setRoute({ name: "deck", deckId: deck.id, tab: "cards" })}
+              onClick={() => go({ name: "deck", deckId: deck.id, tab: "cards" })}
             />
           );
         })}
@@ -82,7 +140,7 @@ export function Sidebar() {
         <button
           type="button"
           className={cn("hover:text-ink", settingsActive && "text-ink font-medium")}
-          onClick={() => setRoute({ name: "settings" })}
+          onClick={() => go({ name: "settings" })}
         >
           Settings
         </button>
@@ -98,7 +156,7 @@ export function Sidebar() {
               : syncStatus}
         </span>
       </div>
-    </aside>
+    </>
   );
 }
 

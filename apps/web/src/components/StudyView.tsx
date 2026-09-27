@@ -261,7 +261,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   return (
     <div
-      className="relative flex h-full flex-col p-8"
+      className="relative flex h-full flex-col p-5 md:p-8"
       onMouseDown={(e) => {
         if (isRealTypingTarget(e.target)) return;
         // Don't steal clicks from buttons — but refocus hotkeys after
@@ -321,7 +321,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
             if (!revealed) reveal();
             else focusHotkeys();
           }}
-          className="w-full cursor-pointer rounded-[20px] bg-card px-8 py-10 text-center shadow-sm outline-none"
+          className="w-full cursor-pointer rounded-[20px] bg-card px-5 py-8 text-center shadow-sm outline-none md:px-8 md:py-10"
         >
           <div className="mb-8 text-[12px] text-stone">
             {current.anki.phase === "new" ||

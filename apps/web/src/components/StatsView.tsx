@@ -77,7 +77,7 @@ export function StatsView({ deckId }: { deckId: string }) {
   if (!deck) return null;
 
   return (
-    <div className="flex h-full flex-col p-8">
+    <div className="flex h-full flex-col p-5 md:p-8">
       <DeckPageHeader
         deckId={deckId}
         title={deck.name}

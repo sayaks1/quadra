@@ -24,15 +24,18 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
   const recall = recallPercent(reviews);
 
   return (
-    <div className="flex h-full flex-col p-8">
-      <div className="mb-8 flex items-start justify-between">
-        <h1 className="font-serif text-[40px] font-normal tracking-tight">Today</h1>
-        <div className="flex gap-2">
-          <PillButton variant="ghost" onClick={onOpenAdd}>
+    <div className="flex h-full flex-col p-5 md:p-8">
+      <div className="mb-6 flex items-start justify-between gap-3 md:mb-8">
+        <h1 className="hidden font-serif text-[40px] font-normal tracking-tight md:block">
+          Today
+        </h1>
+        <div className="flex w-full gap-2 md:w-auto md:justify-end">
+          <PillButton variant="ghost" className="flex-1 md:flex-none" onClick={onOpenAdd}>
             Add card
           </PillButton>
           <PillButton
             variant="oxblood"
+            className="flex-1 md:flex-none"
             data-testid="study-all"
             onClick={() => setRoute({ name: "study" })}
             disabled={due.length === 0}
@@ -42,14 +45,14 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
         </div>
       </div>
 
-      <div className="mb-10 flex items-end justify-between gap-8">
+      <div className="mb-8 flex flex-col gap-6 md:mb-10 md:flex-row md:items-end md:justify-between md:gap-8">
         <div>
-          <div className="font-serif text-[72px] leading-none">{due.length}</div>
+          <div className="font-serif text-[56px] leading-none md:text-[72px]">{due.length}</div>
           <p className="mt-2 text-[14.5px] text-stone">
             cards waiting across {decks.length} decks
           </p>
         </div>
-        <div className="flex gap-8 text-right text-[13px] text-stone">
+        <div className="flex justify-between gap-4 text-[13px] text-stone md:justify-end md:gap-8 md:text-right">
           <Stat label="day streak" value={`${streak}`} />
           <Stat label="recall" value={`${recall}%`} />
           <Stat label="est. session" value={`${estimateSessionMinutes(due.length)}m`} />
@@ -63,12 +66,12 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
           return (
             <div
               key={deck.id}
-              className="flex items-center gap-4 rounded-[20px] bg-card px-5 py-4 shadow-sm"
+              className="flex flex-col gap-3 rounded-[20px] bg-card px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:gap-4"
             >
               <div className="min-w-0 flex-1">
                 <div className="font-serif text-[22px]">{deck.name}</div>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-field">
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <div className="h-[3px] w-full overflow-hidden rounded-full bg-field sm:flex-1">
                     <div
                       className="h-full rounded-full bg-oxblood"
                       style={{
@@ -85,6 +88,7 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
               </div>
               <PillButton
                 variant={nothingDue ? "ghost" : "soft"}
+                className="w-full sm:w-auto"
                 onClick={() =>
                   setRoute(
                     nothingDue

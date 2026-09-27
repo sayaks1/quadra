@@ -40,7 +40,7 @@ export function SettingsView() {
   const anki = settings.anki;
 
   return (
-    <div className="flex h-full flex-col p-8">
+    <div className="flex h-full flex-col p-5 md:p-8">
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="font-serif text-[40px] font-normal tracking-tight">Settings</h1>
