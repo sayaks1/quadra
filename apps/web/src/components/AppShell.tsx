@@ -17,7 +17,13 @@ export function AppShell() {
   const setRoute = useQuadra((s) => s.setRoute);
   const [editing, setEditing] = useState<Card | null>(null);
   const [adding, setAdding] = useState(false);
+  const [cachedDeckId, setCachedDeckId] = useState<string | undefined>();
   const syncTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (route.name === "deck") setCachedDeckId(route.deckId);
+    if (route.name === "study" && route.deckId) setCachedDeckId(route.deckId);
+  }, [route]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -175,39 +181,60 @@ export function AppShell() {
     };
   }, []);
 
+  const showToday = route.name === "today";
+  const showSearch = route.name === "search";
+  const showSettings = route.name === "settings";
+  const showDeckCards = route.name === "deck" && route.tab === "cards";
+  const showDeckStats = route.name === "deck" && route.tab === "stats";
+  const showStudy =
+    route.name === "study" || (route.name === "deck" && route.tab === "study");
+  const studyDeckId = route.name === "study" || route.name === "deck" ? route.deckId : undefined;
+  const deckId =
+    route.name === "deck" ? route.deckId : cachedDeckId;
+
   return (
     <div className="flex min-h-screen bg-field p-4 md:p-6">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1280px] overflow-hidden rounded-[26px] bg-field shadow-sm md:min-h-[calc(100vh-3rem)]">
+      <div className="mx-auto flex h-[calc(100vh-2rem)] w-full max-w-[1280px] overflow-hidden rounded-[26px] bg-field shadow-sm md:h-[calc(100vh-3rem)]">
         <Sidebar />
-        <main className="min-w-0 flex-1 overflow-auto rounded-[26px] bg-[#f3f3f0]">
-          {route.name === "today" ? (
+        <main className="relative min-w-0 flex-1 overflow-auto rounded-[26px] bg-[#f3f3f0]">
+          {/* Keep primary tabs mounted to avoid remount flicker when switching. */}
+          <div className={showToday ? "h-full" : "hidden"} aria-hidden={!showToday}>
             <TodayView onOpenAdd={() => setAdding(true)} />
-          ) : null}
-          {route.name === "settings" ? <SettingsView /> : null}
-          {route.name === "search" ? (
+          </div>
+          <div className={showSearch ? "h-full" : "hidden"} aria-hidden={!showSearch}>
             <CardsView
               global
-              initialQuery={route.query ?? ""}
-              initialAddedToday={route.addedToday ?? false}
+              initialQuery={route.name === "search" ? (route.query ?? "") : ""}
+              initialAddedToday={route.name === "search" ? (route.addedToday ?? false) : false}
               onEdit={setEditing}
               onOpenAdd={() => setAdding(true)}
             />
+          </div>
+          <div className={showSettings ? "h-full" : "hidden"} aria-hidden={!showSettings}>
+            <SettingsView />
+          </div>
+          {deckId ? (
+            <>
+              <div
+                className={showDeckCards ? "h-full" : "hidden"}
+                aria-hidden={!showDeckCards}
+              >
+                <CardsView
+                  deckId={deckId}
+                  onEdit={setEditing}
+                  onOpenAdd={() => setAdding(true)}
+                />
+              </div>
+              <div
+                className={showDeckStats ? "h-full" : "hidden"}
+                aria-hidden={!showDeckStats}
+              >
+                <StatsView deckId={deckId} />
+              </div>
+            </>
           ) : null}
-          {route.name === "study" ? <StudyView deckId={route.deckId} /> : null}
-          {route.name === "deck" && route.tab === "cards" ? (
-            <CardsView
-              deckId={route.deckId}
-              onEdit={setEditing}
-              onOpenAdd={() => setAdding(true)}
-            />
-          ) : null}
-          {route.name === "deck" && route.tab === "stats" ? (
-            <StatsView deckId={route.deckId} />
-          ) : null}
-          {/* Legacy persisted routes used deck.tab === "study"; send them to study */}
-          {route.name === "deck" && route.tab === "study" ? (
-            <StudyView deckId={route.deckId} />
-          ) : null}
+          {/* Study still mounts fresh so each session starts clean. */}
+          {showStudy ? <StudyView deckId={studyDeckId} /> : null}
         </main>
       </div>
       <EditCardModal card={editing} onClose={() => setEditing(null)} />

@@ -78,7 +78,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto flex items-center justify-between px-2 pt-4 text-[12px] text-stone">
+      <div className="mt-auto flex items-center justify-between gap-2 px-2 pt-4 text-[12px] text-stone">
         <button
           type="button"
           className={cn("hover:text-ink", settingsActive && "text-ink font-medium")}
@@ -86,11 +86,13 @@ export function Sidebar() {
         >
           Settings
         </button>
-        <span className="capitalize">
+        <span className="w-14 shrink-0 text-right capitalize tabular-nums">
           {syncBackend === "supabase"
             ? syncStatus === "synced"
               ? "Cloud"
-              : syncStatus
+              : syncStatus === "syncing"
+                ? "Sync"
+                : syncStatus
             : syncStatus === "local"
               ? "Local"
               : syncStatus}
@@ -116,8 +118,8 @@ function NavRow({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between rounded-[14px] px-3 py-2.5 text-left text-[14.5px] font-medium transition",
-        active ? "bg-card text-ink shadow-sm" : "text-ink/80 hover:bg-card/60",
+        "flex w-full items-center justify-between rounded-[14px] px-3 py-2.5 text-left text-[14.5px] font-medium transition-colors",
+        active ? "bg-card text-ink" : "text-ink/80 hover:bg-card/60",
       )}
     >
       <span className="truncate pr-2">{label}</span>
