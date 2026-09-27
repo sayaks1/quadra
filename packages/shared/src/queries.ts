@@ -60,6 +60,42 @@ export function answeredToday(reviews: { reviewedAt: string }[], now = new Date(
   return reviews.filter((r) => new Date(r.reviewedAt) >= start).length;
 }
 
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** Consecutive days ending today (or yesterday) with at least one review. */
+export function studyStreakDays(reviews: { reviewedAt: string }[], now = new Date()) {
+  if (!reviews.length) return 0;
+  const days = new Set(
+    reviews.map((r) => {
+      const d = new Date(r.reviewedAt);
+      d.setHours(0, 0, 0, 0);
+      return dayKey(d);
+    }),
+  );
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+  if (!days.has(dayKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!days.has(dayKey(cursor))) return 0;
+  }
+  let streak = 0;
+  while (days.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+export function recallPercent(
+  reviews: { rating: string }[],
+): number {
+  if (!reviews.length) return 0;
+  const good = reviews.filter((r) => r.rating === "good" || r.rating === "easy").length;
+  return Math.round((good / reviews.length) * 100);
+}
+
 export function estimateSessionMinutes(dueCount: number) {
   return Math.max(1, Math.round(dueCount * 0.35));
 }

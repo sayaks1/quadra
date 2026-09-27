@@ -6,6 +6,8 @@ import {
   dueCards,
   estimateSessionMinutes,
   answeredToday,
+  recallPercent,
+  studyStreakDays,
 } from "@quadra/shared";
 import { PillButton } from "@/components/ui";
 import { useQuadra } from "@/lib/store";
@@ -18,14 +20,8 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
   const decks = activeDecks(decksRaw);
   const due = dueCards(cards);
   const answered = answeredToday(reviews);
-  const streak = Math.min(9, Math.max(1, Math.floor(answered / 5) + 3));
-  const recall = reviews.length
-    ? Math.round(
-        (reviews.filter((r) => r.rating === "good" || r.rating === "easy").length /
-          reviews.length) *
-          100,
-      )
-    : 94;
+  const streak = studyStreakDays(reviews);
+  const recall = recallPercent(reviews);
 
   return (
     <div className="flex h-full flex-col p-8">

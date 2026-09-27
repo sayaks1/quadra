@@ -5,6 +5,8 @@ import {
   answeredToday,
   cardsForDeck,
   deckStats,
+  recallPercent,
+  studyStreakDays,
 } from "@quadra/shared";
 import { DeckPageHeader } from "@/components/DeckPageHeader";
 import { useQuadra } from "@/lib/store";
@@ -16,16 +18,14 @@ export function StatsView({ deckId }: { deckId: string }) {
   const deck = decks.find((d) => d.id === deckId);
   const list = cardsForDeck(cards, deckId);
   const stats = deckStats(cards, deckId);
-  const answered = answeredToday(reviews);
-  const deckReviews = reviews.filter((r) => list.some((c) => c.id === r.cardId));
-  const recall = deckReviews.length
-    ? Math.round(
-        (deckReviews.filter((r) => r.rating === "good" || r.rating === "easy").length /
-          deckReviews.length) *
-          100,
-      )
-    : 94;
-  const streak = Math.min(9, Math.max(1, Math.floor(answered / 4) + 2));
+  const cardIds = useMemo(() => new Set(list.map((c) => c.id)), [list]);
+  const deckReviews = useMemo(
+    () => reviews.filter((r) => cardIds.has(r.cardId)),
+    [reviews, cardIds],
+  );
+  const answered = answeredToday(deckReviews);
+  const recall = recallPercent(deckReviews);
+  const streak = studyStreakDays(deckReviews);
 
   const fortnight = useMemo(() => {
     const days = Array.from({ length: 14 }, (_, i) => i);
@@ -42,6 +42,8 @@ export function StatsView({ deckId }: { deckId: string }) {
       return { offset, count };
     });
   }, [list]);
+
+  const heatmap = useMemo(() => activityHeatmap(deckReviews, 20 * 7), [deckReviews]);
 
   const maxBar = Math.max(1, ...fortnight.map((d) => d.count));
   const young = list.filter(
@@ -117,31 +119,24 @@ export function StatsView({ deckId }: { deckId: string }) {
 
         <div className="rounded-[20px] bg-card p-5 shadow-sm">
           <h3 className="text-[14.5px] font-medium">Twenty weeks of study</h3>
-          <p className="mb-4 text-[12px] text-stone">Activity heatmap</p>
+          <p className="mb-4 text-[12px] text-stone">
+            {deckReviews.length
+              ? "Days you studied this deck in Quadra"
+              : "Empty until you review cards here — Anki history isn’t imported"}
+          </p>
           <div
             className="grid gap-1"
             style={{ gridTemplateColumns: "repeat(20, minmax(0, 1fr))" }}
+            title="Each cell is one day; darker = more reviews"
           >
-            {Array.from({ length: 140 }, (_, i) => {
-              const intensity = (i * 17 + answered * 3) % 5;
-              const bg =
-                intensity === 0
-                  ? "#ecece8"
-                  : intensity === 1
-                    ? "#d4c4c4"
-                    : intensity === 2
-                      ? "#b07a7a"
-                      : intensity === 3
-                        ? "#8a4a4a"
-                        : "#6e2f2f";
-              return (
-                <div
-                  key={i}
-                  className="aspect-square rounded-[3px]"
-                  style={{ background: bg }}
-                />
-              );
-            })}
+            {heatmap.map((cell) => (
+              <div
+                key={cell.key}
+                className="aspect-square rounded-[3px]"
+                style={{ background: cell.color }}
+                title={`${cell.label}: ${cell.count} review${cell.count === 1 ? "" : "s"}`}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -178,4 +173,44 @@ function Metric({ value, label }: { value: string; label: string }) {
 function Seg({ flex, color }: { flex: number; color: string }) {
   if (flex <= 0) return null;
   return <div style={{ flex, background: color }} />;
+}
+
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+const HEAT = ["#ecece8", "#d4c4c4", "#b07a7a", "#8a4a4a", "#6e2f2f"] as const;
+
+/** Oldest → newest daily cells for the last N days, from real review logs. */
+function activityHeatmap(reviews: { reviewedAt: string }[], cells: number, now = new Date()) {
+  const counts = new Map<string, number>();
+  for (const r of reviews) {
+    const d = new Date(r.reviewedAt);
+    d.setHours(0, 0, 0, 0);
+    const k = dayKey(d);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  const end = new Date(now);
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - (cells - 1));
+
+  const max = Math.max(1, ...counts.values());
+  return Array.from({ length: cells }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const count = counts.get(dayKey(d)) ?? 0;
+    const level =
+      count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4) || 1);
+    return {
+      key: `${dayKey(d)}-${i}`,
+      count,
+      color: HEAT[level]!,
+      label: d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    };
+  });
 }
