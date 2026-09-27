@@ -126,7 +126,10 @@ export async function POST(req: Request) {
       wasmFile.byteOffset + wasmFile.byteLength,
     );
     const SQL = await initSqlJs({ wasmBinary });
-    const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    const ab = buf.buffer.slice(
+      buf.byteOffset,
+      buf.byteOffset + buf.byteLength,
+    ) as ArrayBuffer;
 
     // Notes only — media uploaded after cards are saved
     const result = await parseApkgWithSql(ab, SQL, { loadMedia: false });
