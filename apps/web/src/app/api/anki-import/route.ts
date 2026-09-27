@@ -8,16 +8,18 @@ import {
   newId,
   type Card,
   type Deck,
+  type Language,
   type QuadraStore,
 } from "@quadra/shared";
 import { parseApkgWithSql } from "@/lib/anki";
 import { pullCloudStore, upsertCloudPieces } from "@/lib/cloud-store";
 import { writeLocalStore, readLocalStore } from "@/lib/local-store";
 import { saveMedia } from "@/lib/media";
-import { isCloudConfigured } from "@/lib/supabase";
+import { getSupabaseAdmin, isCloudConfigured, MEDIA_BUCKET } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 function matchKey(term: string, meaning: string) {
   return `${term.trim().toLowerCase()}\0${meaning.trim().toLowerCase()}`;
@@ -47,21 +49,76 @@ async function loadStore(): Promise<QuadraStore> {
   throw new Error("Could not read the current deck store");
 }
 
-export async function POST(req: Request) {
-  try {
-    const form = await req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Missing .apkg file" }, { status: 400 });
-    }
+async function loadApkgBuffer(req: Request): Promise<{
+  buf: Buffer;
+  deckId: string;
+  deckName: string;
+  filename: string;
+  language?: Language;
+  storageKey?: string;
+}> {
+  const contentType = req.headers.get("content-type") || "";
 
-    const deckId = String(form.get("deckId") || "").trim();
-    const deckName =
+  if (contentType.includes("application/json")) {
+    const body = (await req.json()) as {
+      storageKey?: string;
+      deckId?: string;
+      deckName?: string;
+      filename?: string;
+      language?: Language;
+    };
+    const storageKey = String(body.storageKey || "").trim();
+    if (!storageKey) {
+      throw new Error("Missing storageKey — upload the .apkg to storage first");
+    }
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      throw new Error("Cloud storage is not configured");
+    }
+    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).download(storageKey);
+    if (error || !data) {
+      throw new Error(error?.message || "Could not download the uploaded .apkg");
+    }
+    const ab = await data.arrayBuffer();
+    const filename =
+      String(body.filename || path.basename(storageKey)).replace(/\.apkg$/i, "") + ".apkg";
+    return {
+      buf: Buffer.from(ab),
+      deckId: String(body.deckId || "").trim(),
+      deckName:
+        String(body.deckName || filename)
+          .replace(/\.apkg$/i, "")
+          .trim() || "Anki import",
+      filename,
+      language: body.language,
+      storageKey,
+    };
+  }
+
+  const form = await req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    throw new Error("Missing .apkg file");
+  }
+  return {
+    buf: Buffer.from(await file.arrayBuffer()),
+    deckId: String(form.get("deckId") || "").trim(),
+    deckName:
       String(form.get("deckName") || file.name || "Anki import")
         .replace(/\.apkg$/i, "")
-        .trim() || "Anki import";
+        .trim() || "Anki import",
+    filename: file.name,
+    language: (String(form.get("language") || "").trim() as Language) || undefined,
+  };
+}
 
-    const buf = Buffer.from(await file.arrayBuffer());
+export async function POST(req: Request) {
+  let storageKey: string | undefined;
+  try {
+    const loaded = await loadApkgBuffer(req);
+    storageKey = loaded.storageKey;
+    const { buf, deckId, deckName, filename, language } = loaded;
+
     const wasmPath = path.join(process.cwd(), "public", "sql-wasm.wasm");
     const wasmFile = await readFile(wasmPath);
     const wasmBinary = wasmFile.buffer.slice(
@@ -71,7 +128,7 @@ export async function POST(req: Request) {
     const SQL = await initSqlJs({ wasmBinary });
     const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 
-    // Notes only — don't pull every media file into memory before saving cards
+    // Notes only — media uploaded after cards are saved
     const result = await parseApkgWithSql(ab, SQL, { loadMedia: false });
 
     const store = await loadStore();
@@ -82,13 +139,16 @@ export async function POST(req: Request) {
       deck = {
         id: targetDeckId,
         name: deckName,
-        language: "other",
+        language: language && ["ko", "ja", "zh", "en", "other"].includes(language) ? language : "other",
         createdAt: now,
         updatedAt: now,
       };
       store.decks.push(deck);
     } else {
       deck.updatedAt = now;
+      if (language && ["ko", "ja", "zh", "en", "other"].includes(language)) {
+        deck.language = language;
+      }
     }
 
     const config = store.settings?.anki;
@@ -140,7 +200,6 @@ export async function POST(req: Request) {
     });
 
     store.cards.push(...imported);
-    // Cloud first — on Vercel the local disk is read-only
     if (isCloudConfigured()) {
       await upsertCloudPieces({
         decks: [deck],
@@ -151,7 +210,6 @@ export async function POST(req: Request) {
     }
     await writeLocalStore(store);
 
-    // Attach media after cards exist, so a slow upload can't lose the notes
     let mediaUploaded = 0;
     if (Object.keys(result.mediaMap).length) {
       const zip = await JSZip.loadAsync(ab);
@@ -206,6 +264,12 @@ export async function POST(req: Request) {
       }
     }
 
+    // Clean up temporary upload
+    if (storageKey) {
+      const supabase = getSupabaseAdmin();
+      await supabase?.storage.from(MEDIA_BUCKET).remove([storageKey]).catch(() => null);
+    }
+
     const kept = [...imported, ...updated].filter((c) => c.anki.phase !== "new").length;
 
     return NextResponse.json({
@@ -216,7 +280,7 @@ export async function POST(req: Request) {
       withProgress: kept,
       deckId: deck.id,
       mediaUploaded,
-      filename: file.name,
+      filename,
     });
   } catch (e) {
     console.error("anki import failed", e);
@@ -224,7 +288,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-
-// Keep the route alive for large packages
-export const dynamic = "force-dynamic";
-

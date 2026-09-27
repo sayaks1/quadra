@@ -74,18 +74,55 @@ export function AddFlowModal({ onClose }: { onClose: () => void }) {
         throw new Error("Please choose an Anki .apkg file");
       }
       const target = await ensureDeck(file.name);
-      const deckName =
-        useQuadra.getState().decks.find((d) => d.id === target)?.name ||
-        file.name.replace(/\.apkg$/i, "");
-      setStatus("Importing… large decks can take a minute. You can leave this open.");
+      const deck = useQuadra.getState().decks.find((d) => d.id === target);
+      const deckName = deck?.name || file.name.replace(/\.apkg$/i, "");
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setStatus(`Uploading ${mb} MB package…`);
 
-      const form = new FormData();
-      form.append("file", file);
-      form.append("deckId", target);
-      form.append("deckName", deckName);
-      const res = await fetch("/api/anki-import", { method: "POST", body: form });
+      // Large .apkg files exceed Vercel's ~4.5 MB request limit, so upload
+      // straight to Supabase storage, then ask the server to import from there.
+      const { getSupabaseBrowser, MEDIA_BUCKET } = await import("@/lib/supabase-browser");
+      const supabase = getSupabaseBrowser();
+      let res: Response;
+      if (supabase) {
+        const storageKey = `imports/${Date.now()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+        const { error: upErr } = await supabase.storage
+          .from(MEDIA_BUCKET)
+          .upload(storageKey, file, {
+            contentType: "application/octet-stream",
+            upsert: true,
+          });
+        if (upErr) throw new Error(upErr.message || "Could not upload .apkg");
+        setStatus("Parsing Anki package… this can take a minute.");
+        res = await fetch("/api/anki-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storageKey,
+            deckId: target,
+            deckName,
+            filename: file.name,
+            language: deck?.language,
+          }),
+        });
+      } else {
+        // Local / no-cloud fallback — only works for small packages
+        const form = new FormData();
+        form.append("file", file);
+        form.append("deckId", target);
+        form.append("deckName", deckName);
+        res = await fetch("/api/anki-import", { method: "POST", body: form });
+      }
+
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Import failed");
+      if (!res.ok) {
+        if (res.status === 413) {
+          throw new Error(
+            "Package is too large for a direct upload. Refresh and try again — the new importer uses cloud storage.",
+          );
+        }
+        throw new Error(data.error || `Import failed (${res.status})`);
+      }
       if (!data.count) {
         throw new Error(
           data.error ||
