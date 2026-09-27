@@ -1,0 +1,7 @@
+.next
+**/.next
+**/node_modules
+.git
+apps/mobile
+**/.env.local
+**/.env*.local

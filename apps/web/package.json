@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 43127 --hostname 0.0.0.0",
-    "build": "pnpm run copy-wasm && next build",
+    "build": "pnpm run copy-wasm && next build --webpack",
     "start": "next start --port 43127 --hostname 0.0.0.0",
     "lint": "eslint",
     "copy-wasm": "mkdir -p public && cp node_modules/sql.js/dist/sql-wasm.wasm public/sql-wasm.wasm",
