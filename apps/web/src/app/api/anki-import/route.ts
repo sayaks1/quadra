@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { readFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import initSqlJs from "sql.js";
@@ -12,13 +12,12 @@ import {
 } from "@quadra/shared";
 import { parseApkgWithSql } from "@/lib/anki";
 import { pullCloudStore, upsertCloudPieces } from "@/lib/cloud-store";
+import { writeLocalStore, readLocalStore } from "@/lib/local-store";
 import { saveMedia } from "@/lib/media";
 import { isCloudConfigured } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-const storePath = () => path.join(process.cwd(), ".data", "store.json");
 
 function matchKey(term: string, meaning: string) {
   return `${term.trim().toLowerCase()}\0${meaning.trim().toLowerCase()}`;
@@ -38,25 +37,12 @@ function contentTypeFor(name: string) {
   return "application/octet-stream";
 }
 
-async function readLocal(): Promise<QuadraStore | null> {
-  try {
-    return JSON.parse(await readFile(storePath(), "utf8")) as QuadraStore;
-  } catch {
-    return null;
-  }
-}
-
-async function writeLocal(store: QuadraStore) {
-  await mkdir(path.dirname(storePath()), { recursive: true });
-  await writeFile(storePath(), JSON.stringify(store), "utf8");
-}
-
 async function loadStore(): Promise<QuadraStore> {
   if (isCloudConfigured()) {
     const cloud = await pullCloudStore();
     if (cloud) return cloud;
   }
-  const local = await readLocal();
+  const local = await readLocalStore();
   if (local?.decks && local.cards) return local;
   throw new Error("Could not read the current deck store");
 }
@@ -154,7 +140,7 @@ export async function POST(req: Request) {
     });
 
     store.cards.push(...imported);
-    await writeLocal(store);
+    // Cloud first — on Vercel the local disk is read-only
     if (isCloudConfigured()) {
       await upsertCloudPieces({
         decks: [deck],
@@ -163,6 +149,7 @@ export async function POST(req: Request) {
         version: store.version,
       });
     }
+    await writeLocalStore(store);
 
     // Attach media after cards exist, so a slow upload can't lose the notes
     let mediaUploaded = 0;
@@ -212,10 +199,10 @@ export async function POST(req: Request) {
       }
 
       if (touched.length) {
-        await writeLocal(store);
         if (isCloudConfigured()) {
           await upsertCloudPieces({ cards: touched });
         }
+        await writeLocalStore(store);
       }
     }
 

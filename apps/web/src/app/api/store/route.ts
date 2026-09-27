@@ -1,39 +1,22 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import type { QuadraStore } from "@quadra/shared";
 import { pullCloudStore, pushCloudStore } from "@/lib/cloud-store";
+import { readLocalStore, writeLocalStore } from "@/lib/local-store";
 import { isCloudConfigured } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const storePath = () => path.join(process.cwd(), ".data", "store.json");
-
-async function readLocal(): Promise<QuadraStore | null> {
-  try {
-    const raw = await readFile(storePath(), "utf8");
-    return JSON.parse(raw) as QuadraStore;
-  } catch {
-    return null;
-  }
-}
-
-async function writeLocal(body: QuadraStore) {
-  await mkdir(path.dirname(storePath()), { recursive: true });
-  await writeFile(storePath(), JSON.stringify(body, null, 2), "utf8");
-}
 
 export async function GET() {
   if (isCloudConfigured()) {
     try {
       const cloud = await pullCloudStore();
       if (cloud) {
-        await writeLocal(cloud).catch(() => null);
+        await writeLocalStore(cloud);
         return NextResponse.json({ ...cloud, backend: "supabase" as const });
       }
     } catch (e) {
-      const local = await readLocal();
+      const local = await readLocalStore();
       return NextResponse.json({
         ...(local ?? { decks: [], cards: [], reviews: [], version: 3 }),
         backend: "local" as const,
@@ -42,7 +25,7 @@ export async function GET() {
     }
   }
 
-  const local = await readLocal();
+  const local = await readLocalStore();
   return NextResponse.json({
     ...(local ?? { decks: [], cards: [], reviews: [], version: 3 }),
     backend: "local" as const,
@@ -90,15 +73,14 @@ export async function PUT(req: Request) {
         );
       }
     } catch {
-      // If we can't read cloud, fall through and write local at least
+      // If we can't read cloud, fall through and write at least
     }
   }
-
-  await writeLocal(body);
 
   if (isCloudConfigured()) {
     try {
       await pushCloudStore(body);
+      await writeLocalStore(body);
       return NextResponse.json({ ok: true, backend: "supabase" as const });
     } catch (e) {
       return NextResponse.json(
@@ -112,5 +94,6 @@ export async function PUT(req: Request) {
     }
   }
 
+  await writeLocalStore(body);
   return NextResponse.json({ ok: true, backend: "local" as const });
 }
