@@ -49,24 +49,26 @@ function pathBasename(p: string) {
   return p.split(/[\\/]/).pop() || p;
 }
 
-const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
+/** Japanese kana, CJK ideographs, and Hangul — target-language script. */
+const TARGET_RE =
+  /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
 const LATIN_RE = /[A-Za-z]/;
 
 function scriptScore(text: string) {
-  const cjk = (text.match(new RegExp(CJK_RE.source, "g")) || []).length;
+  const target = (text.match(new RegExp(TARGET_RE.source, "g")) || []).length;
   const latin = (text.match(new RegExp(LATIN_RE.source, "g")) || []).length;
-  return { cjk, latin };
+  return { target, latin };
 }
 
 /** True when the text is primarily English / Latin (flashcard front). */
 function looksEnglish(text: string) {
-  const { cjk, latin } = scriptScore(text);
-  return latin > 0 && latin >= Math.max(1, cjk) * 2;
+  const { target, latin } = scriptScore(text);
+  return latin > 0 && latin >= Math.max(1, target) * 2;
 }
 
-/** True when the text contains CJK / kana (target-language side). */
+/** True when the text contains CJK / kana / Hangul (target-language side). */
 function looksTargetLanguage(text: string) {
-  return CJK_RE.test(text);
+  return TARGET_RE.test(text);
 }
 
 /**
@@ -102,7 +104,7 @@ function splitTargetField(text: string): { term: string; reading: string; notes:
  * Quadra stores English in `meaning` (study front) and the target word in `term` (back).
  * Anki notes vary — English-first or word-first — so detect and normalize.
  */
-function mapAnkiFields(fields: string[]): {
+export function mapAnkiFields(fields: string[]): {
   term: string;
   reading: string;
   meaning: string;
