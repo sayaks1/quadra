@@ -76,7 +76,7 @@ export function AppShell() {
           Array.isArray(data.cards) &&
           (data.decks.length > 0 || data.cards.length > 0);
 
-        if (data.backend === "supabase" && cloudHasData) {
+        if (cloudHasData && (data.backend === "supabase" || data.backend === "local")) {
           replaceStore({
             decks: data.decks,
             cards: data.cards,
@@ -84,7 +84,9 @@ export function AppShell() {
             settings: data.settings,
             version: data.version ?? 3,
           });
-          useQuadra.setState({ syncStatus: "synced" });
+          useQuadra.setState({
+            syncStatus: data.backend === "supabase" ? "synced" : "local",
+          });
           return;
         }
 
