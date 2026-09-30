@@ -69,6 +69,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const flashTimer = useRef<number | null>(null);
 
   const hotkeyRef = useRef<HTMLInputElement>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const revealedRef = useRef(revealed);
   const currentRef = useRef<Card | undefined>(undefined);
   const playAudioRef = useRef<() => void>(() => undefined);
@@ -90,31 +91,51 @@ export function StudyView({ deckId }: { deckId?: string }) {
     el.focus({ preventScroll: true });
   }, []);
 
+  const stopAudio = useCallback(() => {
+    const el = audioElRef.current;
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
   const playAudio = useCallback(() => {
     if (!current) return;
+    stopAudio();
+
     if (audioUrl) {
-      void new Audio(audioUrl).play();
-    } else {
-      void speakFallback(current.term, deck?.language);
+      let el = audioElRef.current;
+      if (!el || el.src !== new URL(audioUrl, window.location.href).href) {
+        el = new Audio(audioUrl);
+        el.preload = "auto";
+        audioElRef.current = el;
+      }
+      el.currentTime = 0;
+      void el.play().catch(() => {
+        void speakFallback(current.term, deck?.language);
+      });
+      return;
     }
-  }, [audioUrl, current, deck?.language]);
+
+    void speakFallback(current.term, deck?.language);
+  }, [audioUrl, current, deck?.language, stopAudio]);
 
   const reveal = useCallback(() => {
     setRevealed(true);
+    // Play in the same user-gesture turn as the flip (click / Space),
+    // before any focus work that can break autoplay on iOS Safari.
+    playAudio();
     requestAnimationFrame(() => focusHotkeys());
-    if (current) {
-      if (audioUrl) {
-        void new Audio(audioUrl).play();
-      } else {
-        void speakFallback(current.term, deck?.language);
-      }
-    }
-  }, [audioUrl, current, deck?.language, focusHotkeys]);
+  }, [focusHotkeys, playAudio]);
 
   const handleRate = useCallback(
     (rating: Rating) => {
       const card = currentRef.current;
       if (!card) return;
+      stopAudio();
       const updated = rateCard(card.id, rating);
       const labels: Record<Rating, string> = {
         again: "Again",
@@ -154,7 +175,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
       });
       requestAnimationFrame(() => focusHotkeys());
     },
-    [rateCard, focusHotkeys],
+    [rateCard, focusHotkeys, stopAudio],
   );
 
   revealedRef.current = revealed;
@@ -206,6 +227,22 @@ export function StudyView({ deckId }: { deckId?: string }) {
     requestAnimationFrame(() => focusHotkeys());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
   }, [deckId, cards.length]);
+
+  // Prefetch the current card's audio so flip playback starts immediately.
+  useEffect(() => {
+    stopAudio();
+    if (!audioUrl) {
+      audioElRef.current = null;
+      return;
+    }
+    const el = new Audio(audioUrl);
+    el.preload = "auto";
+    audioElRef.current = el;
+    return () => {
+      el.pause();
+      if (audioElRef.current === el) audioElRef.current = null;
+    };
+  }, [audioUrl, stopAudio]);
 
   // Window capture listener as backup; primary path is the IME-disabled input
   useEffect(() => {
@@ -458,9 +495,14 @@ function PlayIcon() {
 
 async function speakFallback(text: string, language?: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   if (language === "ja") utter.lang = "ja-JP";
   else if (language === "ko") utter.lang = "ko-KR";
   else if (language === "zh") utter.lang = "zh-CN";
+  // Prefer a matching system voice when available (helps Safari/iOS).
+  const voices = window.speechSynthesis.getVoices();
+  const match = voices.find((v) => v.lang.toLowerCase().startsWith(utter.lang.slice(0, 2)));
+  if (match) utter.voice = match;
   window.speechSynthesis.speak(utter);
 }
