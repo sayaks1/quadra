@@ -362,7 +362,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   return (
     <div
-      className="relative flex h-full flex-col p-5 md:p-8"
+      className="relative flex h-full min-w-0 flex-col overflow-x-hidden p-5 md:p-8"
       onMouseDown={(e) => {
         if (isRealTypingTarget(e.target)) return;
         // Don't steal clicks from buttons — but refocus hotkeys after
@@ -430,7 +430,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center">
+      <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-1 flex-col justify-center">
         <div
           role="button"
           tabIndex={-1}
@@ -438,7 +438,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
             if (!revealed) reveal();
             else focusHotkeys();
           }}
-          className="w-full cursor-pointer rounded-[20px] bg-card px-5 py-8 text-center shadow-sm outline-none md:px-8 md:py-10"
+          className="w-full min-w-0 cursor-pointer rounded-[20px] bg-card px-5 py-8 text-center shadow-sm outline-none md:px-8 md:py-10"
         >
           <div className="mb-8 text-[12px] text-stone">
             {current.anki.phase === "new" ||
@@ -448,17 +448,17 @@ export function StudyView({ deckId }: { deckId?: string }) {
                 ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
                 : `Review · seen ${current.anki.reps} times`}
           </div>
-          <div className="font-serif text-[34px] leading-snug text-ink">
+          <div className="max-w-full break-words font-serif text-[28px] leading-snug text-ink [overflow-wrap:anywhere] md:text-[34px]">
             {current.meaning}
           </div>
           {revealed ? (
             <>
               <div className="my-8 h-px bg-stone/30" />
-              <div className="flex items-center justify-center gap-3">
-                <div className="font-serif text-[34px] leading-snug">
+              <div className="flex min-w-0 items-start justify-center gap-3">
+                <div className="min-w-0 max-w-full break-words font-serif text-[28px] leading-snug [overflow-wrap:anywhere] md:text-[34px]">
                   {current.term}
                   {current.reading ? (
-                    <span className="font-sans text-[20px] text-stone">
+                    <span className="font-sans text-[18px] text-stone md:text-[20px]">
                       {" "}
                       ({current.reading})
                     </span>
@@ -474,7 +474,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
                     e.stopPropagation();
                     playAudio();
                   }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone/50 text-ink transition hover:bg-field"
+                  className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone/50 text-ink transition hover:bg-field"
                 >
                   <PlayIcon />
                 </button>
@@ -563,7 +563,7 @@ function ExampleNotes({ notes }: { notes: string }) {
   const translation = lines.length > 1 ? lines.slice(1).join(" ") : null;
 
   return (
-    <div className="mt-6 space-y-1.5 text-[14.5px] leading-relaxed">
+    <div className="mt-6 space-y-1.5 break-words text-[14.5px] leading-relaxed [overflow-wrap:anywhere]">
       <p className="text-ink">
         {/^ex\.?\s/i.test(example) ? example : `ex. ${example}`}
       </p>

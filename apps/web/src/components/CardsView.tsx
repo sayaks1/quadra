@@ -163,7 +163,7 @@ export function CardsView({
                         dot === "empty" && "border border-stone bg-transparent",
                       )}
                     />
-                    <span className="min-w-0 flex-1 truncate font-serif text-[20px]">
+                    <span className="min-w-0 flex-1 break-words font-serif text-[18px] leading-snug [overflow-wrap:anywhere] md:truncate md:text-[20px] md:leading-normal">
                       {card.meaning}
                       <span className="font-sans text-[14.5px] text-stone">
                         {" "}
