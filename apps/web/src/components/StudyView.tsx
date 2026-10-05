@@ -507,7 +507,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
               >
                 Show answer
               </PillButton>
-              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
+              <div className="mt-4 hidden flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone md:flex">
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> reveal
                 </span>
@@ -525,7 +525,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
           ) : (
             <>
               <RatingBar card={current} onRate={handleRate} showKeys />
-              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone">
+              <div className="mt-4 hidden flex-wrap justify-center gap-x-4 gap-y-2 text-[12px] text-stone md:flex">
                 <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">j</kbd> Again
                 </span>

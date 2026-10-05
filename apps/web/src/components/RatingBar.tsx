@@ -54,7 +54,7 @@ export function RatingBar({
             {showKeys ? (
               <span
                 className={cn(
-                  "mb-0.5 text-[11px] font-medium",
+                  "mb-0.5 hidden text-[11px] font-medium md:block",
                   primary ? "text-white/70" : "text-stone",
                 )}
               >
