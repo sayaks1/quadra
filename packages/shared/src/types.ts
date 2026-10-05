@@ -85,6 +85,13 @@ export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
   learnAheadSeconds: 20 * 60,
 };
 
+/**
+ * After this many learning reps (Again loops, etc.), Easy no longer jumps
+ * straight to `easyInterval` (4d) — Anki-like cap at 2 days.
+ */
+export const LEARNING_EASY_CAP_REPS = 4;
+export const LEARNING_EASY_CAP_DAYS = 2;
+
 export interface QuadraSettings {
   anki: AnkiConfig;
 }

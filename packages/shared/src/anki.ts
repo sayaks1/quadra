@@ -1,5 +1,9 @@
 import type { AnkiConfig, AnkiState, Card, Rating } from "./types";
-import { DEFAULT_ANKI_CONFIG } from "./types";
+import {
+  DEFAULT_ANKI_CONFIG,
+  LEARNING_EASY_CAP_DAYS,
+  LEARNING_EASY_CAP_REPS,
+} from "./types";
 
 function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
@@ -29,6 +33,22 @@ export function createInitialAnki(now = new Date(), config: AnkiConfig = DEFAULT
 
 function stepsFor(state: AnkiState, config: AnkiConfig) {
   return state.phase === "relearning" ? config.relearningSteps : config.learningSteps;
+}
+
+/**
+ * Easy while learning normally uses `easyInterval` (default 4d).
+ * If the card has been repeated a lot (Again loops) or is relearning
+ * after lapses, cap Easy at 2d — matching Anki's tighter jump.
+ */
+function easyGraduateDays(state: AnkiState, config: AnkiConfig): number {
+  const struggled =
+    state.reps >= LEARNING_EASY_CAP_REPS ||
+    state.lapses > 0 ||
+    state.phase === "relearning";
+  if (struggled) {
+    return Math.min(config.easyInterval, LEARNING_EASY_CAP_DAYS);
+  }
+  return config.easyInterval;
 }
 
 function graduate(
@@ -105,7 +125,7 @@ function applyLearningRating(
   }
 
   if (rating === "easy") {
-    return graduate(state, now, config.easyInterval, 0.15);
+    return graduate(state, now, easyGraduateDays(state, config), 0.15);
   }
 
   // Good
