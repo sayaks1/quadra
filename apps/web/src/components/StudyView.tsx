@@ -8,6 +8,7 @@ import {
   type Rating,
 } from "@quadra/shared";
 import { EditCardModal } from "@/components/EditCardModal";
+import { FitText, useStudyDisplayMaxPx } from "@/components/FitText";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
 import { mediaUrl } from "@/lib/media-url";
@@ -88,6 +89,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   const audioUrl = useMemo(() => mediaUrl(current?.audioKey), [current]);
   const imageUrl = useMemo(() => mediaUrl(current?.imageKey), [current]);
+  const displayMaxPx = useStudyDisplayMaxPx(28, 34);
 
   const focusHotkeys = useCallback(() => {
     const el = hotkeyRef.current;
@@ -448,22 +450,33 @@ export function StudyView({ deckId }: { deckId?: string }) {
                 ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
                 : `Review · seen ${current.anki.reps} times`}
           </div>
-          <div className="max-w-full break-words font-serif text-[28px] leading-snug text-ink [overflow-wrap:anywhere] md:text-[34px]">
+          <FitText
+            maxPx={displayMaxPx}
+            minPx={22}
+            className="font-serif leading-snug text-ink"
+          >
             {current.meaning}
-          </div>
+          </FitText>
           {revealed ? (
             <>
               <div className="my-8 h-px bg-stone/30" />
               <div className="flex min-w-0 items-start justify-center gap-3">
-                <div className="min-w-0 max-w-full break-words font-serif text-[28px] leading-snug [overflow-wrap:anywhere] md:text-[34px]">
+                <FitText
+                  maxPx={displayMaxPx}
+                  minPx={22}
+                  className="flex-1 font-serif leading-snug"
+                >
                   {current.term}
                   {current.reading ? (
-                    <span className="font-sans text-[18px] text-stone md:text-[20px]">
+                    <span
+                      className="font-sans text-stone"
+                      style={{ fontSize: "0.6em" }}
+                    >
                       {" "}
                       ({current.reading})
                     </span>
                   ) : null}
-                </div>
+                </FitText>
                 <button
                   type="button"
                   tabIndex={-1}
