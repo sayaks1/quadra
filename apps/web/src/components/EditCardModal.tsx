@@ -43,6 +43,19 @@ export function EditCardModal({
     setError(null);
   }, [card]);
 
+  useEffect(() => {
+    if (!card) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [card, onClose]);
+
   if (!card) return null;
 
   async function generateTts() {

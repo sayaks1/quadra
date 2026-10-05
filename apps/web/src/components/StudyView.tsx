@@ -7,6 +7,7 @@ import {
   type Card,
   type Rating,
 } from "@quadra/shared";
+import { EditCardModal } from "@/components/EditCardModal";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
 import { mediaUrl } from "@/lib/media-url";
@@ -66,15 +67,18 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const [doneCount, setDoneCount] = useState(0);
   const [startedAt] = useState(() => Date.now());
   const [flash, setFlash] = useState<string | null>(null);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const flashTimer = useRef<number | null>(null);
 
   const hotkeyRef = useRef<HTMLInputElement>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const revealedRef = useRef(revealed);
+  const editingRef = useRef(false);
   const currentRef = useRef<Card | undefined>(undefined);
   const playAudioRef = useRef<() => void>(() => undefined);
   const revealRef = useRef<() => void>(() => undefined);
   const rateRef = useRef<(rating: Rating) => void>(() => undefined);
+  const openEditRef = useRef<() => void>(() => undefined);
 
   const current = queue[0];
   const deck = decks.find((d) => d.id === (deckId || current?.deckId));
@@ -131,6 +135,18 @@ export function StudyView({ deckId }: { deckId?: string }) {
     requestAnimationFrame(() => focusHotkeys());
   }, [focusHotkeys, playAudio]);
 
+  const openEdit = useCallback(() => {
+    const card = currentRef.current;
+    if (!card) return;
+    stopAudio();
+    setEditingCard(card);
+  }, [stopAudio]);
+
+  const closeEdit = useCallback(() => {
+    setEditingCard(null);
+    requestAnimationFrame(() => focusHotkeys());
+  }, [focusHotkeys]);
+
   const handleRate = useCallback(
     (rating: Rating) => {
       const card = currentRef.current;
@@ -179,17 +195,27 @@ export function StudyView({ deckId }: { deckId?: string }) {
   );
 
   revealedRef.current = revealed;
+  editingRef.current = editingCard != null;
   currentRef.current = current;
   playAudioRef.current = playAudio;
   revealRef.current = reveal;
   rateRef.current = handleRate;
+  openEditRef.current = openEdit;
 
   const handleHotkeyEvent = useCallback((e: KeyboardEvent) => {
+    if (editingRef.current) return;
     if (isRealTypingTarget(e.target)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (!currentRef.current) return;
 
     const code = e.code;
+
+    if (code === "KeyE") {
+      e.preventDefault();
+      e.stopPropagation();
+      openEditRef.current();
+      return;
+    }
 
     if (code === "KeyA" || code === "KeyR") {
       e.preventDefault();
@@ -224,9 +250,46 @@ export function StudyView({ deckId }: { deckId?: string }) {
     setQueue(getDue(deckId));
     setRevealed(false);
     setDoneCount(0);
+    setEditingCard(null);
     requestAnimationFrame(() => focusHotkeys());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when deck or card count changes
   }, [deckId, cards.length]);
+
+  // Keep the current study card in sync after in-session edits / deletes.
+  useEffect(() => {
+    setQueue((q) => {
+      if (q.length === 0) return q;
+      let changed = false;
+      const next: Card[] = [];
+      for (const item of q) {
+        const fresh = cards.find((c) => c.id === item.id && !c.deletedAt);
+        if (!fresh) {
+          changed = true;
+          continue;
+        }
+        if (deckId && fresh.deckId !== deckId) {
+          changed = true;
+          continue;
+        }
+        if (fresh.updatedAt !== item.updatedAt) {
+          changed = true;
+          next.push(fresh);
+        } else {
+          next.push(item);
+        }
+      }
+      return changed ? next : q;
+    });
+    setEditingCard((editing) => {
+      if (!editing) return editing;
+      const stillExists = cards.some((c) => c.id === editing.id && !c.deletedAt);
+      if (!stillExists) {
+        requestAnimationFrame(() => focusHotkeys());
+        return null;
+      }
+      return editing;
+    });
+  }, [cards, deckId, focusHotkeys]);
 
   // Prefetch the current card's audio so flip playback starts immediately.
   useEffect(() => {
@@ -256,6 +319,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
   // Keep the hotkey trap focused while studying (unless user is in a real field)
   useEffect(() => {
     function onFocusIn(e: FocusEvent) {
+      if (editingRef.current) return;
       if (!currentRef.current) return;
       if (isRealTypingTarget(e.target)) return;
       const t = e.target;
@@ -336,17 +400,33 @@ export function StudyView({ deckId }: { deckId?: string }) {
             style={{ width: `${Math.max(6, progress * 100)}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-[14.5px]">
+        <div className="flex items-center justify-between gap-3 text-[14.5px]">
           <span className="font-medium">{deck?.name ?? "All decks"}</span>
-          <span className="text-stone">
-            {flash ? (
-              <span className="font-medium text-oxblood">{flash}</span>
-            ) : stats ? (
-              `${stats.neu} new · ${stats.learning} learning · ${queue.length} due`
-            ) : (
-              `${queue.length} left`
-            )}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-stone">
+              {flash ? (
+                <span className="font-medium text-oxblood">{flash}</span>
+              ) : stats ? (
+                `${stats.neu} new · ${stats.learning} learning · ${queue.length} due`
+              ) : (
+                `${queue.length} left`
+              )}
+            </span>
+            <button
+              type="button"
+              tabIndex={-1}
+              title="Edit card (E)"
+              aria-label="Edit card"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
+                openEdit();
+              }}
+              className="rounded-full border border-stone/40 bg-card px-3 py-1 text-[12px] font-medium text-ink transition hover:bg-field"
+            >
+              Edit
+            </button>
+          </div>
         </div>
       </div>
 
@@ -432,6 +512,9 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   <kbd className="rounded bg-card px-1.5 py-0.5">Space</kbd> reveal
                 </span>
                 <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">e</kbd> edit
+                </span>
+                <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">a</kbd> audio
                 </span>
                 <span>
@@ -456,6 +539,9 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   <kbd className="rounded bg-card px-1.5 py-0.5">;</kbd> Easy
                 </span>
                 <span>
+                  <kbd className="rounded bg-card px-1.5 py-0.5">e</kbd> edit
+                </span>
+                <span>
                   <kbd className="rounded bg-card px-1.5 py-0.5">Esc</kbd> exit
                 </span>
               </div>
@@ -463,6 +549,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
           )}
         </div>
       </div>
+      <EditCardModal card={editingCard} onClose={closeEdit} />
     </div>
   );
 }
