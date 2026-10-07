@@ -1,0 +1,19 @@
+---
+description: Quadra vocab import rules — translate gaps, skip duplicates, always add audio
+alwaysApply: true
+---
+
+# Vocab imports (always apply)
+
+When adding vocabulary from notes, photos, PDFs, or similar for this repo:
+
+1. **Translate missing sides — never skip for incomplete notes.**  
+   If the user wrote only English, or only Japanese/Korean/Chinese (or only a reading), they do not know the other side. Translate it and **add the card anyway**. Target language → `term`, English → `meaning`.
+
+2. **Skip duplicates.**  
+   Match on the target-language term (ignore readings in parentheses and spacing). Related but different words are not duplicates.
+
+3. **Every new card must have audio.**  
+   Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.
+
+4. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.
