@@ -100,9 +100,12 @@ export function deckStats(
   const learning = list.filter(
     (c) => c.anki.phase === "learning" || c.anki.phase === "relearning",
   ).length;
-  const due = dueCards(list, now, undefined, config, reviews).length;
+  const dueList = dueCards(list, now, undefined, config, reviews);
+  const due = dueList.length;
+  /** Unseen new cards included in today's capped study queue */
+  const newDue = dueList.filter(isUnseenNew).length;
   const mature = list.filter((c) => c.anki.phase === "review" && c.anki.intervalDays >= 21).length;
-  return { total: list.length, neu, learning, due, mature };
+  return { total: list.length, neu, learning, due, newDue, mature };
 }
 
 export function answeredToday(reviews: { reviewedAt: string }[], now = new Date()) {

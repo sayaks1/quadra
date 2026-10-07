@@ -83,7 +83,9 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
                   <span className="shrink-0 text-[12px] text-stone">
                     {nothingDue
                       ? "nothing due"
-                      : `${stats.neu} new · ${stats.learning} learning · ${stats.due} due`}
+                      : stats.neu > stats.newDue
+                        ? `${stats.due} due · ${stats.newDue} new today (${stats.neu} in pile) · ${stats.learning} learning`
+                        : `${stats.due} due · ${stats.neu} new · ${stats.learning} learning`}
                   </span>
                 </div>
               </div>

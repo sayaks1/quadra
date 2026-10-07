@@ -411,7 +411,9 @@ export function StudyView({ deckId }: { deckId?: string }) {
               {flash ? (
                 <span className="font-medium text-oxblood">{flash}</span>
               ) : stats ? (
-                `${stats.neu} new · ${stats.learning} learning · ${queue.length} due`
+                stats.neu > stats.newDue
+                  ? `${queue.length} due · ${stats.newDue} new today (${stats.neu} in pile)`
+                  : `${queue.length} due · ${stats.neu} new · ${stats.learning} learning`
               ) : (
                 `${queue.length} left`
               )}
