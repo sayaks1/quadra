@@ -32,6 +32,8 @@ export function CardsView({
   const [addedToday, setAddedToday] = useState(initialAddedToday);
   const cards = useQuadra((s) => s.cards);
   const decks = useQuadra((s) => s.decks);
+  const reviews = useQuadra((s) => s.reviews);
+  const anki = useQuadra((s) => s.settings.anki);
   const search = useQuadra((s) => s.search);
   const setRoute = useQuadra((s) => s.setRoute);
 
@@ -63,7 +65,7 @@ export function CardsView({
     return base;
   }, [cards, deckId, global, addedToday, query, search]);
 
-  const stats = deckId ? deckStats(cards, deckId) : null;
+  const stats = deckId ? deckStats(cards, deckId, new Date(), anki, reviews) : null;
 
   return (
     <div className="flex h-full flex-col p-5 md:p-8">

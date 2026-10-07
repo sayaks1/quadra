@@ -16,9 +16,10 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
   const decksRaw = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const reviews = useQuadra((s) => s.reviews);
+  const anki = useQuadra((s) => s.settings.anki);
   const setRoute = useQuadra((s) => s.setRoute);
   const decks = activeDecks(decksRaw);
-  const due = dueCards(cards);
+  const due = dueCards(cards, new Date(), undefined, anki, reviews);
   const answered = answeredToday(reviews);
   const streak = studyStreakDays(reviews);
   const recall = recallPercent(reviews);
@@ -61,7 +62,7 @@ export function TodayView({ onOpenAdd }: { onOpenAdd: () => void }) {
 
       <div className="flex flex-col gap-3">
         {decks.map((deck) => {
-          const stats = deckStats(cards, deck.id);
+          const stats = deckStats(cards, deck.id, new Date(), anki, reviews);
           const nothingDue = stats.due === 0;
           return (
             <div

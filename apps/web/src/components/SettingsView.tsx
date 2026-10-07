@@ -132,6 +132,15 @@ export function SettingsView() {
               updateSettings({ anki: { learnAheadSeconds: Math.max(0, v) * 60 } })
             }
           />
+          <NumberField
+            label="New cards per day"
+            value={anki.newCardsPerDay ?? DEFAULT_ANKI_CONFIG.newCardsPerDay}
+            onChange={(v) =>
+              updateSettings({
+                anki: { newCardsPerDay: Math.max(0, Math.round(v)) },
+              })
+            }
+          />
         </section>
 
         <div className="flex flex-wrap gap-2">

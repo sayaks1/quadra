@@ -65,14 +65,21 @@ function touch() {
   return new Date().toISOString();
 }
 
-function defaultSettings(): QuadraSettings {
+function normalizeAnki(anki?: Partial<AnkiConfig> | null): AnkiConfig {
   return {
-    anki: {
-      ...DEFAULT_ANKI_CONFIG,
-      learningSteps: [...DEFAULT_ANKI_CONFIG.learningSteps],
-      relearningSteps: [...DEFAULT_ANKI_CONFIG.relearningSteps],
-    },
+    ...DEFAULT_ANKI_CONFIG,
+    ...anki,
+    learningSteps: [...(anki?.learningSteps ?? DEFAULT_ANKI_CONFIG.learningSteps)],
+    relearningSteps: [
+      ...(anki?.relearningSteps ?? DEFAULT_ANKI_CONFIG.relearningSteps),
+    ],
+    newCardsPerDay:
+      anki?.newCardsPerDay ?? DEFAULT_ANKI_CONFIG.newCardsPerDay,
   };
+}
+
+function defaultSettings(): QuadraSettings {
+  return { anki: normalizeAnki() };
 }
 
 export const useQuadra = create<QuadraState>()(
@@ -193,24 +200,28 @@ export const useQuadra = create<QuadraState>()(
         replaceStore: (store) =>
           set({
             ...store,
-            settings: store.settings ?? defaultSettings(),
+            settings: {
+              anki: normalizeAnki(store.settings?.anki),
+            },
           }),
         updateSettings: (partial) => {
           set((s) => ({
             settings: {
-              anki: {
+              anki: normalizeAnki({
                 ...s.settings.anki,
                 ...partial.anki,
-                learningSteps:
-                  partial.anki?.learningSteps ?? s.settings.anki.learningSteps,
-                relearningSteps:
-                  partial.anki?.relearningSteps ?? s.settings.anki.relearningSteps,
-              },
+              }),
             },
           }));
         },
         getDue: (deckId) =>
-          dueCards(get().cards, new Date(), deckId, get().settings.anki),
+          dueCards(
+            get().cards,
+            new Date(),
+            deckId,
+            get().settings.anki,
+            get().reviews,
+          ),
         getAddedToday: () => cardsAddedToday(get().cards),
         search: (q) => searchCards(get().cards, q),
       };
@@ -228,6 +239,13 @@ export const useQuadra = create<QuadraState>()(
         state?.setHydrated(true);
         if (state && !state.settings?.anki) {
           state.updateSettings({ anki: defaultSettings().anki });
+        } else if (
+          state?.settings?.anki &&
+          state.settings.anki.newCardsPerDay == null
+        ) {
+          state.updateSettings({
+            anki: { newCardsPerDay: DEFAULT_ANKI_CONFIG.newCardsPerDay },
+          });
         }
         if (typeof window !== "undefined") {
           (window as unknown as { __quadra: typeof useQuadra }).__quadra = useQuadra;

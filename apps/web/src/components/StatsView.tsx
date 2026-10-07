@@ -15,9 +15,10 @@ export function StatsView({ deckId }: { deckId: string }) {
   const decks = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
   const reviews = useQuadra((s) => s.reviews);
+  const anki = useQuadra((s) => s.settings.anki);
   const deck = decks.find((d) => d.id === deckId);
   const list = cardsForDeck(cards, deckId);
-  const stats = deckStats(cards, deckId);
+  const stats = deckStats(cards, deckId, new Date(), anki, reviews);
   const cardIds = useMemo(() => new Set(list.map((c) => c.id)), [list]);
   const deckReviews = useMemo(
     () => reviews.filter((r) => cardIds.has(r.cardId)),

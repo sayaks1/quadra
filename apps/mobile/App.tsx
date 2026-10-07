@@ -103,7 +103,10 @@ export default function App() {
 
   const config = store?.settings?.anki ?? DEFAULT_ANKI_CONFIG;
   const due = useMemo(
-    () => (store ? dueCards(store.cards, new Date(), undefined, config) : []),
+    () =>
+      store
+        ? dueCards(store.cards, new Date(), undefined, config, store.reviews)
+        : [],
     [store, config],
   );
 
@@ -279,13 +282,27 @@ export default function App() {
           {store.decks
             .filter((d) => !d.deletedAt)
             .map((deck) => {
-              const count = dueCards(store.cards, new Date(), deck.id, config).length;
+              const count = dueCards(
+                store.cards,
+                new Date(),
+                deck.id,
+                config,
+                store.reviews,
+              ).length;
               return (
                 <Pressable
                   key={deck.id}
                   style={styles.deckRow}
                   onPress={() => {
-                    setQueue(dueCards(store.cards, new Date(), deck.id, config));
+                    setQueue(
+                      dueCards(
+                        store.cards,
+                        new Date(),
+                        deck.id,
+                        config,
+                        store.reviews,
+                      ),
+                    );
                     setRevealed(false);
                     setScreen("study");
                   }}
@@ -302,7 +319,9 @@ export default function App() {
         <Pressable
           style={[styles.pill, styles.pillDark, { width: "100%" }]}
           onPress={() => {
-            setQueue(dueCards(store.cards, new Date(), undefined, config));
+            setQueue(
+              dueCards(store.cards, new Date(), undefined, config, store.reviews),
+            );
             setRevealed(false);
             setScreen("study");
           }}

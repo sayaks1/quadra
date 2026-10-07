@@ -10,6 +10,7 @@ When the user asks to add vocabulary from class notes, photos, PDFs, or similar:
 3. **Every new card must have audio.** Generate TTS for the target-language `term`, upload via `/api/media/upload`, and set `audioKey` + `audioSource: "tts"` before finishing. Never leave newly added cards silent.
 4. Prefer the live cloud store (`https://quadra-tau.vercel.app/api/store` when that is the user’s deployed app) over local-only changes so cards show up in study immediately.
 5. Card orientation: English (`meaning`) on the front; target language (`term`) on the back — including Korean Hangul as the target script.
+6. Study uses an Anki-style **new cards per day** cap (default **20** via `settings.anki.newCardsPerDay`). Do not remove or bypass this when changing queue logic.
 
 ## Stack reminders
 

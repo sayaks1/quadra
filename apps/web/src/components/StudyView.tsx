@@ -59,6 +59,8 @@ function isRealTypingTarget(target: EventTarget | null) {
 export function StudyView({ deckId }: { deckId?: string }) {
   const cards = useQuadra((s) => s.cards);
   const decks = useQuadra((s) => s.decks);
+  const reviews = useQuadra((s) => s.reviews);
+  const anki = useQuadra((s) => s.settings.anki);
   const getDue = useQuadra((s) => s.getDue);
   const rateCard = useQuadra((s) => s.rateCard);
   const setRoute = useQuadra((s) => s.setRoute);
@@ -83,7 +85,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   const current = queue[0];
   const deck = decks.find((d) => d.id === (deckId || current?.deckId));
-  const stats = deck ? deckStats(cards, deck.id) : null;
+  const stats = deck ? deckStats(cards, deck.id, new Date(), anki, reviews) : null;
   const totalSession = doneCount + queue.length;
   const progress = totalSession === 0 ? 1 : doneCount / totalSession;
 

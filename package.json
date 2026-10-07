@@ -14,6 +14,7 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "puppeteer-core": "^25.11.0"
+    "puppeteer-core": "^25.11.0",
+    "tsx": "^4.23.15"
   }
 }

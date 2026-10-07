@@ -67,6 +67,8 @@ export function Sidebar({
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const decksRaw = useQuadra((s) => s.decks);
   const cards = useQuadra((s) => s.cards);
+  const reviews = useQuadra((s) => s.reviews);
+  const anki = useQuadra((s) => s.settings.anki);
   const route = useQuadra((s) => s.route);
   const setRoute = useQuadra((s) => s.setRoute);
   const syncStatus = useQuadra((s) => s.syncStatus);
@@ -123,7 +125,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         />
         <div className="my-2 h-px bg-stone/30" />
         {decks.map((deck: Deck) => {
-          const stats = deckStats(cards as Card[], deck.id);
+          const stats = deckStats(cards as Card[], deck.id, new Date(), anki, reviews);
           return (
             <NavRow
               key={deck.id}

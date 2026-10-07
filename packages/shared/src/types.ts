@@ -70,6 +70,11 @@ export interface AnkiConfig {
   minimumInterval: number;
   /** When no other cards are due, show learning cards up to this many seconds early */
   learnAheadSeconds: number;
+  /**
+   * Max unseen new cards that can enter the study queue per local day (Anki-style).
+   * Already-introduced learning/review cards are not limited by this.
+   */
+  newCardsPerDay: number;
 }
 
 export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
@@ -83,6 +88,7 @@ export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
   intervalModifier: 1.0,
   minimumInterval: 1,
   learnAheadSeconds: 20 * 60,
+  newCardsPerDay: 20,
 };
 
 /**
