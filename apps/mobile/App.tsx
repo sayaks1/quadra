@@ -179,11 +179,13 @@ export default function App() {
 
           <View style={styles.studyCard}>
             <Text style={styles.caption}>
-              {current.anki.phase === "learning" || current.anki.phase === "relearning"
-                ? `Learning · step ${current.anki.learningStep + 1}`
-                : current.anki.reps === 0
-                  ? "New"
-                  : `Review · seen ${current.anki.reps} times`}
+              {current.anki.phase === "new" ||
+              (current.anki.phase === "learning" && current.anki.reps === 0)
+                ? "New"
+                : current.anki.phase === "learning" ||
+                    current.anki.phase === "relearning"
+                  ? "Learning"
+                  : "Review"}
             </Text>
             {/* Front is always English */}
             <Text style={styles.cardTerm}>{current.meaning}</Text>
