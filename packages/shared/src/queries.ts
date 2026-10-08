@@ -27,17 +27,20 @@ export function isUnseenNew(card: Card) {
 
 /**
  * How many cards had their first-ever review today (local day).
- * Each counts against the Anki-style new-cards-per-day budget.
+ * Each counts against that deck's Anki-style new-cards-per-day budget.
+ * Pass `cardIds` to scope the count to one deck (or any card set).
  */
 export function newCardsIntroducedToday(
   reviews: ReviewLog[],
   now = new Date(),
+  cardIds?: Set<string>,
 ): number {
   if (!reviews.length) return 0;
   const start = startOfLocalDay(now).getTime();
   const end = now.getTime();
   const firstByCard = new Map<string, number>();
   for (const r of reviews) {
+    if (cardIds && !cardIds.has(r.cardId)) continue;
     const t = new Date(r.reviewedAt).getTime();
     const prev = firstByCard.get(r.cardId);
     if (prev === undefined || t < prev) firstByCard.set(r.cardId, t);
@@ -57,17 +60,46 @@ export function dueCards(
   reviews: ReviewLog[] = [],
 ) {
   const limit = config.newCardsPerDay ?? DEFAULT_ANKI_CONFIG.newCardsPerDay;
-  const slotsLeft = Math.max(0, limit - newCardsIntroducedToday(reviews, now));
 
-  const due = activeCards(cards)
-    .filter((c) => (deckId ? c.deckId === deckId : true))
+  const pool = activeCards(cards).filter((c) =>
+    deckId ? c.deckId === deckId : true,
+  );
+  const due = pool
     .filter((c) => isDue(c, now, config, { learnAhead: true }))
     .sort((a, b) => new Date(a.anki.due).getTime() - new Date(b.anki.due).getTime());
 
-  const unseenNew = due
-    .filter(isUnseenNew)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const allowedNew = new Set(unseenNew.slice(0, slotsLeft).map((c) => c.id));
+  // Budget is per deck (Anki-style): studying Chinese must not shrink Japanese.
+  const idsByDeck = new Map<string, Set<string>>();
+  for (const c of pool) {
+    let set = idsByDeck.get(c.deckId);
+    if (!set) {
+      set = new Set();
+      idsByDeck.set(c.deckId, set);
+    }
+    set.add(c.id);
+  }
+
+  const newByDeck = new Map<string, Card[]>();
+  for (const c of due) {
+    if (!isUnseenNew(c)) continue;
+    const list = newByDeck.get(c.deckId) ?? [];
+    list.push(c);
+    newByDeck.set(c.deckId, list);
+  }
+
+  const allowedNew = new Set<string>();
+  for (const [id, news] of newByDeck) {
+    news.sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const introduced = newCardsIntroducedToday(
+      reviews,
+      now,
+      idsByDeck.get(id) ?? new Set(),
+    );
+    const slotsLeft = Math.max(0, limit - introduced);
+    for (const c of news.slice(0, slotsLeft)) allowedNew.add(c.id);
+  }
 
   return due.filter((c) => !isUnseenNew(c) || allowedNew.has(c.id));
 }

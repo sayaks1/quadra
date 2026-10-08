@@ -129,4 +129,53 @@ describe("new cards per day", () => {
     assert.equal(due.filter((c) => c.anki.phase === "new").length, 20);
     assert.equal(due.length, 21);
   });
+
+  it("applies the new-card cap per deck, not globally", () => {
+    const zhNews = Array.from({ length: 10 }, (_, i) => {
+      const c = makeCard(
+        `zh_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 3, 0, i)).toISOString(),
+      );
+      return { ...c, deckId: "deck_zh" };
+    });
+    // 5 Chinese cards already introduced today
+    for (let i = 0; i < 5; i++) {
+      zhNews[i] = {
+        ...zhNews[i],
+        anki: {
+          ...zhNews[i].anki,
+          phase: "learning",
+          reps: 1,
+          due: new Date(now.getTime() + 60_000).toISOString(),
+        },
+      };
+    }
+    const jaNews = Array.from({ length: 30 }, (_, i) => {
+      const c = makeCard(
+        `ja_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      );
+      return { ...c, deckId: "deck_ja" };
+    });
+    const reviews: ReviewLog[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `rev_zh_${i}`,
+      cardId: `zh_${i}`,
+      rating: "good",
+      reviewedAt: new Date(Date.UTC(2026, 9, 7, 14, 0, i)).toISOString(),
+      scheduledDays: 0,
+    }));
+
+    const jaDue = dueCards(jaNews, now, "deck_ja", config, reviews);
+    assert.equal(jaDue.filter((c) => c.anki.phase === "new").length, 20);
+
+    const allDue = dueCards([...zhNews, ...jaNews], now, undefined, config, reviews);
+    assert.equal(
+      allDue.filter((c) => c.deckId === "deck_ja" && c.anki.phase === "new").length,
+      20,
+    );
+    assert.equal(
+      allDue.filter((c) => c.deckId === "deck_zh" && c.anki.phase === "new").length,
+      5,
+    );
+  });
 });
