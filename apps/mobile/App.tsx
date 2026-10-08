@@ -345,7 +345,13 @@ function NotesBlock({ notes }: { notes: string }) {
   if (!lines.length) return null;
   const example = lines[0] ?? "";
   const translation = lines[1] ?? null;
-  const context = lines.length > 2 ? lines.slice(2).join(" ") : null;
+  const rest = lines.slice(2);
+  const breakdown = rest.find((l) => /^breakdown:\s*/i.test(l)) ?? null;
+  const context =
+    rest
+      .filter((l) => !/^breakdown:\s*/i.test(l))
+      .join(" ")
+      .trim() || null;
   const hasTargetScript = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/.test(example);
   const exampleLabel = /^ex\.?\s/i.test(example)
     ? example
@@ -356,6 +362,7 @@ function NotesBlock({ notes }: { notes: string }) {
     <View style={{ marginTop: 16, gap: 4 }}>
       <Text style={styles.cardBack}>{exampleLabel}</Text>
       {translation ? <Text style={styles.cardNoteMeta}>{translation}</Text> : null}
+      {breakdown ? <Text style={styles.cardNoteContext}>{breakdown}</Text> : null}
       {context ? <Text style={styles.cardNoteContext}>{context}</Text> : null}
     </View>
   );

@@ -17,6 +17,9 @@ These are standing preferences for this repo. Apply on every vocab import withou
 4. **Every card gets a simple example + usage context.**  
    In `notes`, always include: (1) one short example sentence in the target language using the word naturally, (2) its English translation on the next line, (3) a brief note on how the word is generally used when that isn’t obvious from the gloss (register, near-synonyms, “not X”, common collocations). Do not leave provenance-only notes like `From sticky notes.` as the example. Keep useful disambiguation from the source when it helps.
 
+4b. **Phrases get a word breakdown.**  
+   If the term is a phrase, idiom, or multi-word expression (not a single dictionary word), add a `Breakdown:` line after the translation that glosses each content word/morpheme (e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark → “ears are dark” = hard of hearing / didn’t catch it`). Keep particles brief when they matter for the meaning.
+
 5. **Japanese examples: hiragana, not romaji.**  
    In example sentences, put readings for harder kanji in parentheses as **hiragana** (e.g. `彼（かれ）の話（はなし）`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
 

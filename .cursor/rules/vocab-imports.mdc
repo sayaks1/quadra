@@ -20,6 +20,9 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 4. **Every card gets a simple example + usage context.**  
    Put in `notes`: (1) one short target-language example sentence, (2) English translation on the next line, (3) brief usage context when the gloss alone is ambiguous (register, near-synonyms, “not X”, collocations). Never leave provenance-only text like `From sticky notes.` as the example — replace it, keeping any useful disambiguation.
 
+4b. **Phrases get a word breakdown.**  
+   For multi-word expressions / idioms / phrases, add a `Breakdown:` line after the translation glossing each content word (and important particles), e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark`. Single dictionary words do not need this.
+
 5. **Japanese examples use hiragana readings, never romaji.**  
    After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
 

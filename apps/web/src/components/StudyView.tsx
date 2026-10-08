@@ -617,10 +617,15 @@ function ExampleNotes({ notes }: { notes: string }) {
     .filter(Boolean);
   if (!lines.length) return null;
 
-  // Format: target example, English translation, then optional usage context.
+  // Format: example, translation, optional Breakdown:, then usage context.
   const example = lines[0] ?? "";
   const translation = lines[1] ?? null;
-  const context = lines.length > 2 ? lines.slice(2).join(" ") : null;
+  const rest = lines.slice(2);
+  const breakdown = rest.find((l) => /^breakdown:\s*/i.test(l)) ?? null;
+  const context = rest
+    .filter((l) => !/^breakdown:\s*/i.test(l))
+    .join(" ")
+    .trim() || null;
   const hasTargetScript = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/.test(example);
   const exampleLabel = /^ex\.?\s/i.test(example)
     ? example
@@ -632,6 +637,9 @@ function ExampleNotes({ notes }: { notes: string }) {
     <div className="mt-6 space-y-1.5 break-words text-[14.5px] leading-relaxed [overflow-wrap:anywhere]">
       <p className="text-ink">{exampleLabel}</p>
       {translation ? <p className="text-stone">{translation}</p> : null}
+      {breakdown ? (
+        <p className="text-stone/90 text-[13.5px]">{breakdown}</p>
+      ) : null}
       {context ? <p className="text-stone/90 text-[13.5px]">{context}</p> : null}
     </div>
   );
