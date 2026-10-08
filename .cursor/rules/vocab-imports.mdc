@@ -14,6 +14,10 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
    Match on the target-language term (ignore readings in parentheses and spacing). Related but different words are not duplicates.
 
 3. **Every new card must have audio.**  
-   Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.
+   Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.  
+   For short Japanese katakana loanwords, use hiragana TTS text and about `-20%` rate so it does not sound rushed.
 
-4. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.
+4. **Japanese examples use hiragana readings, never romaji.**  
+   After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
+
+5. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.

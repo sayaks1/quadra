@@ -11,13 +11,17 @@ These are standing preferences for this repo. Apply on every vocab import withou
    Match on the target-language term (ignore parenthetical readings and spacing). If it already exists, skip. Related but different words (e.g. 都会 vs 都会と田舎の間) are not duplicates.
 
 3. **Audio on every new card.**  
-   Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never finish an import with silent new cards.
+   Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never finish an import with silent new cards.  
+   For short Japanese katakana loanwords, prefer hiragana input and a slightly slower rate (about `-20%`) so playback does not sound rushed.
 
-4. Prefer the live cloud store (`https://quadra-tau.vercel.app/api/store` when that is the deployed app) so cards show up in study immediately.
+4. **Japanese examples: hiragana, not romaji.**  
+   In example sentences, put readings for harder kanji in parentheses as **hiragana** (e.g. `彼（かれ）の話（はなし）`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
 
-5. Card orientation: English (`meaning`) front; target language (`term`) back — including Korean Hangul as the target script.
+5. Prefer the live cloud store (`https://quadra-tau.vercel.app/api/store` when that is the deployed app) so cards show up in study immediately.
 
-6. Study uses an Anki-style **new cards per day** cap (default **20** via `settings.anki.newCardsPerDay`). Do not remove or bypass this when changing queue logic.
+6. Card orientation: English (`meaning`) front; target language (`term`) back — including Korean Hangul as the target script.
+
+7. Study uses an Anki-style **new cards per day** cap (default **20** via `settings.anki.newCardsPerDay`). Do not remove or bypass this when changing queue logic.
 
 Also mirrored in `.cursor/rules/vocab-imports.mdc` (`alwaysApply: true`).
 
