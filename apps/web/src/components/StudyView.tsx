@@ -113,6 +113,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const playAudio = useCallback(() => {
     if (!current) return;
     stopAudio();
+    const spoken = speakableTerm(current.term, current.reading);
 
     if (audioUrl) {
       let el = audioElRef.current;
@@ -123,15 +124,17 @@ export function StudyView({ deckId }: { deckId?: string }) {
       }
       el.currentTime = 0;
       void el.play().catch(() => {
-        void speakFallback(current.term, deck?.language);
+        void speakFallback(spoken, deck?.language);
       });
       return;
     }
 
-    void speakFallback(current.term, deck?.language);
+    void speakFallback(spoken, deck?.language);
   }, [audioUrl, current, deck?.language, stopAudio]);
 
   const reveal = useCallback(() => {
+    if (revealedRef.current) return;
+    revealedRef.current = true;
     setRevealed(true);
     // Play in the same user-gesture turn as the flip (click / Space),
     // before any focus work that can break autoplay on iOS Safari.
@@ -597,10 +600,18 @@ function PlayIcon() {
   );
 }
 
+/** Strip readings in parentheses so TTS doesn't say the word twice (e.g. ギャグ (ぎゃぐ)). */
+function speakableTerm(term: string, reading?: string) {
+  const stripped = term.replace(/[（(][^）)]+[）)]/g, "").trim();
+  return stripped || reading?.trim() || term.trim();
+}
+
 async function speakFallback(text: string, language?: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
+  const spoken = text.trim();
+  if (!spoken) return;
   window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
+  const utter = new SpeechSynthesisUtterance(spoken);
   if (language === "ja") utter.lang = "ja-JP";
   else if (language === "ko") utter.lang = "ko-KR";
   else if (language === "zh") utter.lang = "zh-CN";
