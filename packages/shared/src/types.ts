@@ -53,6 +53,11 @@ export interface ReviewLog {
   rating: Rating;
   reviewedAt: string;
   scheduledDays: number;
+  /**
+   * True when this answer introduced an unseen new card into learning.
+   * Used for the daily new-card budget. Older logs may omit this.
+   */
+  newIntro?: boolean;
 }
 
 /** Deck/app scheduling options — Anki defaults */

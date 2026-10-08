@@ -163,6 +163,7 @@ export const useQuadra = create<QuadraState>()(
           const now = new Date();
           const card = get().cards.find((c) => c.id === id);
           if (!card) return null;
+          const newIntro = card.anki.phase === "new";
           const updated = applyRating(card, rating, now, get().settings.anki);
           const log: ReviewLog = {
             id: newId("rev"),
@@ -170,6 +171,7 @@ export const useQuadra = create<QuadraState>()(
             rating,
             reviewedAt: now.toISOString(),
             scheduledDays: updated.anki.intervalDays,
+            newIntro,
           };
           set((s) => ({
             cards: s.cards.map((c) => (c.id === id ? updated : c)),

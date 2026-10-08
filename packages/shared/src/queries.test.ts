@@ -72,7 +72,7 @@ describe("new cards per day", () => {
       reviewedAt: new Date(Date.UTC(2026, 9, 7, 14, 0, i)).toISOString(),
       scheduledDays: 0,
     }));
-    assert.equal(newCardsIntroducedToday(reviews, now), 20);
+    assert.equal(newCardsIntroducedToday(reviews, now, undefined, cards), 20);
     const due = dueCards(cards, now, undefined, config, reviews);
     // Learning cards may still be learn-ahead due, but no additional unseen new.
     assert.equal(due.filter((c) => c.anki.phase === "new").length, 0);
@@ -128,6 +128,68 @@ describe("new cards per day", () => {
     assert.equal(due.filter((c) => c.id === "review_1").length, 1);
     assert.equal(due.filter((c) => c.anki.phase === "new").length, 20);
     assert.equal(due.length, 21);
+  });
+
+  it("does not treat Anki-imported review cards as new introductions", () => {
+    // Mature imported card: high reps, but first Quadra review is today.
+    const imported = makeCard("import_1", "2026-09-01T00:00:00.000Z", {
+      phase: "review",
+      reps: 27,
+      intervalDays: 30,
+      due: "2026-10-07T10:00:00.000Z",
+    });
+    const news = Array.from({ length: 25 }, (_, i) =>
+      makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      ),
+    );
+    const reviews: ReviewLog[] = [
+      {
+        id: "rev_import",
+        cardId: "import_1",
+        rating: "good",
+        reviewedAt: new Date(Date.UTC(2026, 9, 7, 14, 0, 0)).toISOString(),
+        scheduledDays: 30,
+      },
+    ];
+    assert.equal(
+      newCardsIntroducedToday(reviews, now, undefined, [imported, ...news]),
+      0,
+    );
+    const due = dueCards([imported, ...news], now, undefined, config, reviews);
+    assert.equal(due.filter((c) => c.anki.phase === "new").length, 20);
+  });
+
+  it("counts explicit newIntro flags toward the daily budget", () => {
+    const news = Array.from({ length: 25 }, (_, i) =>
+      makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      ),
+    );
+    for (let i = 0; i < 20; i++) {
+      news[i] = {
+        ...news[i],
+        anki: {
+          ...news[i].anki,
+          phase: "learning",
+          reps: 1,
+          due: new Date(now.getTime() + 60_000).toISOString(),
+        },
+      };
+    }
+    const reviews: ReviewLog[] = Array.from({ length: 20 }, (_, i) => ({
+      id: `rev_${i}`,
+      cardId: `new_${i}`,
+      rating: "good",
+      reviewedAt: new Date(Date.UTC(2026, 9, 7, 14, 0, i)).toISOString(),
+      scheduledDays: 0,
+      newIntro: true,
+    }));
+    assert.equal(newCardsIntroducedToday(reviews, now, undefined, news), 20);
+    const due = dueCards(news, now, undefined, config, reviews);
+    assert.equal(due.filter((c) => c.anki.phase === "new").length, 0);
   });
 
   it("applies the new-card cap per deck, not globally", () => {

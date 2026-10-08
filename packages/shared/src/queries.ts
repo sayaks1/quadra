@@ -26,28 +26,56 @@ export function isUnseenNew(card: Card) {
 }
 
 /**
- * How many cards had their first-ever review today (local day).
- * Each counts against that deck's Anki-style new-cards-per-day budget.
- * Pass `cardIds` to scope the count to one deck (or any card set).
+ * How many unseen new cards were introduced today (local day).
+ * Counts against that deck's Anki-style new-cards-per-day budget.
+ * Pass `cardIds` to scope to one deck. Pass `cards` so legacy logs
+ * (before `newIntro`) are not confused with Anki-imported review cards.
  */
 export function newCardsIntroducedToday(
   reviews: ReviewLog[],
   now = new Date(),
   cardIds?: Set<string>,
+  cards: Card[] = [],
 ): number {
   if (!reviews.length) return 0;
   const start = startOfLocalDay(now).getTime();
   const end = now.getTime();
-  const firstByCard = new Map<string, number>();
+  const cardById = new Map(cards.map((c) => [c.id, c]));
+
+  const byCard = new Map<string, ReviewLog[]>();
   for (const r of reviews) {
     if (cardIds && !cardIds.has(r.cardId)) continue;
-    const t = new Date(r.reviewedAt).getTime();
-    const prev = firstByCard.get(r.cardId);
-    if (prev === undefined || t < prev) firstByCard.set(r.cardId, t);
+    const list = byCard.get(r.cardId) ?? [];
+    list.push(r);
+    byCard.set(r.cardId, list);
   }
+
   let n = 0;
-  for (const t of firstByCard.values()) {
-    if (t >= start && t <= end) n += 1;
+  for (const [cardId, list] of byCard) {
+    list.sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt));
+    const today = list.filter((r) => {
+      const t = new Date(r.reviewedAt).getTime();
+      return t >= start && t <= end;
+    });
+    if (!today.length) continue;
+
+    if (today.some((r) => r.newIntro === true)) {
+      n += 1;
+      continue;
+    }
+    // Explicitly marked non-intro (or only legacy logs without the flag).
+    if (list.some((r) => r.newIntro === true)) continue;
+    if (today.some((r) => r.newIntro === false)) continue;
+
+    // Legacy fallback: first-ever Quadra review today, but skip Anki imports
+    // that already had scheduling reps and no prior Quadra review history.
+    const first = list[0];
+    const firstT = new Date(first.reviewedAt).getTime();
+    if (firstT < start || firstT > end) continue;
+    const card = cardById.get(cardId);
+    if (!card) continue;
+    if (card.anki.reps > list.length) continue;
+    n += 1;
   }
   return n;
 }
@@ -96,6 +124,7 @@ export function dueCards(
       reviews,
       now,
       idsByDeck.get(id) ?? new Set(),
+      pool,
     );
     const slotsLeft = Math.max(0, limit - introduced);
     for (const c of news.slice(0, slotsLeft)) allowedNew.add(c.id);

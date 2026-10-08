@@ -140,6 +140,7 @@ export default function App() {
     const now = new Date();
     const intervals = previewIntervals(current, now, config);
     const rate = (rating: Rating) => {
+      const newIntro = current.anki.phase === "new";
       const updated = applyRating(current, rating, now, config);
       setStore({
         ...store,
@@ -152,6 +153,7 @@ export default function App() {
             rating,
             reviewedAt: now.toISOString(),
             scheduledDays: updated.anki.intervalDays,
+            newIntro,
           },
         ],
       });
