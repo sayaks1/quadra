@@ -40,6 +40,8 @@ export async function PUT(req: Request) {
   const incomingCards = Array.isArray(body.cards) ? body.cards.length : 0;
   const incomingDecks = Array.isArray(body.decks) ? body.decks.length : 0;
 
+  let toWrite: QuadraStore = body;
+
   // Guard: never let a blank/partial browser tab wipe a populated cloud store
   // (common right after Anki import when local state is still empty).
   if (!force && isCloudConfigured()) {
@@ -72,6 +74,13 @@ export async function PUT(req: Request) {
           { status: 409 },
         );
       }
+      // Prefer regenerated TTS keys / existing audio over stale client copies.
+      if (cloud?.cards?.length && Array.isArray(body.cards)) {
+        toWrite = {
+          ...body,
+          cards: mergePreferAudio(body.cards, cloud.cards),
+        };
+      }
     } catch {
       // If we can't read cloud, fall through and write at least
     }
@@ -79,8 +88,8 @@ export async function PUT(req: Request) {
 
   if (isCloudConfigured()) {
     try {
-      await pushCloudStore(body);
-      await writeLocalStore(body);
+      await pushCloudStore(toWrite);
+      await writeLocalStore(toWrite);
       return NextResponse.json({ ok: true, backend: "supabase" as const });
     } catch (e) {
       return NextResponse.json(
@@ -94,6 +103,46 @@ export async function PUT(req: Request) {
     }
   }
 
-  await writeLocalStore(body);
+  await writeLocalStore(toWrite);
   return NextResponse.json({ ok: true, backend: "local" as const });
+}
+
+/** Keep the better audio key when a stale tab pushes older TTS paths. */
+function mergePreferAudio(
+  incoming: QuadraStore["cards"],
+  cloud: QuadraStore["cards"],
+): QuadraStore["cards"] {
+  const cloudById = new Map(cloud.map((c) => [c.id, c]));
+  return incoming.map((card) => {
+    const remote = cloudById.get(card.id);
+    if (!remote) return card;
+    const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
+    if (nextKey === (card.audioKey ?? null)) return card;
+    return {
+      ...card,
+      audioKey: nextKey,
+      audioSource: nextKey
+        ? card.audioSource || remote.audioSource || "tts"
+        : card.audioSource,
+    };
+  });
+}
+
+function preferAudioKey(
+  incoming: string | null | undefined,
+  remote: string | null | undefined,
+): string | null {
+  const a = incoming?.trim() || null;
+  const b = remote?.trim() || null;
+  if (!a) return b;
+  if (!b) return a;
+  if (a === b) return a;
+  const score = (key: string) => {
+    if (key.startsWith("tts_ja_v2_")) return 50;
+    if (key.startsWith("tts_ko_v2_") || key.startsWith("tts_zh_v2_")) return 50;
+    if (key.startsWith("rec")) return 40; // user recording
+    if (key.startsWith("tts_")) return 20;
+    return 10;
+  };
+  return score(b) > score(a) ? b : a;
 }
