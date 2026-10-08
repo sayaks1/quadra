@@ -155,19 +155,9 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     scheduled_days: r.scheduledDays,
   }));
 
-  // Replace snapshot: clear then upsert (single-tenant service-role sync)
-  const { error: delReviews } = await supabase
-    .from("reviews")
-    .delete()
-    .neq("id", "");
-  if (delReviews) throw new Error(delReviews.message);
-
-  const { error: delCards } = await supabase.from("cards").delete().neq("id", "");
-  if (delCards) throw new Error(delCards.message);
-
-  const { error: delDecks } = await supabase.from("decks").delete().neq("id", "");
-  if (delDecks) throw new Error(delDecks.message);
-
+  // Upsert first, then delete rows missing from the snapshot.
+  // Never clear-all first — concurrent tabs were racing an empty window and
+  // stomping regenerated audio keys (and briefly wiping the deck).
   if (deckRows.length) {
     const { error } = await supabase.from("decks").upsert(deckRows);
     if (error) throw new Error(error.message);
@@ -180,6 +170,22 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     if (error) throw new Error(error.message);
   }
 
+  await deleteMissingIds(
+    supabase,
+    "decks",
+    store.decks.map((d) => d.id),
+  );
+  await deleteMissingIds(
+    supabase,
+    "cards",
+    store.cards.map((c) => c.id),
+  );
+  await deleteMissingIds(
+    supabase,
+    "reviews",
+    store.reviews.map((r) => r.id),
+  );
+
   const { error: settingsError } = await supabase.from("settings").upsert({
     id: "default",
     payload: store.settings,
@@ -187,6 +193,25 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     updated_at: new Date().toISOString(),
   });
   if (settingsError) throw new Error(settingsError.message);
+}
+
+async function deleteMissingIds(
+  supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  table: "decks" | "cards" | "reviews",
+  keepIds: string[],
+) {
+  const keep = new Set(keepIds);
+  const { data, error } = await supabase.from(table).select("id");
+  if (error) throw new Error(error.message);
+  const toDelete = ((data ?? []) as { id: string }[])
+    .map((r) => r.id)
+    .filter((id) => !keep.has(id));
+  if (!toDelete.length) return;
+  for (let i = 0; i < toDelete.length; i += 100) {
+    const slice = toDelete.slice(i, i + 100);
+    const { error: delError } = await supabase.from(table).delete().in("id", slice);
+    if (delError) throw new Error(delError.message);
+  }
 }
 
 /** Insert/update without wiping existing rows. Chunked so large decks don't exceed request limits. */

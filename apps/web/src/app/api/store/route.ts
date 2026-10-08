@@ -138,11 +138,12 @@ function preferAudioKey(
   if (!b) return a;
   if (a === b) return a;
   const score = (key: string) => {
-    if (key.startsWith("tts_ja_v2_")) return 50;
-    if (key.startsWith("tts_ko_v2_") || key.startsWith("tts_zh_v2_")) return 50;
-    if (key.startsWith("rec")) return 40; // user recording
+    if (key.startsWith("rec")) return 60; // user recording always wins
+    if (key.startsWith("tts_ja_v2_") || key.startsWith("tts_ko_v2_") || key.startsWith("tts_zh_v2_"))
+      return 50;
     if (key.startsWith("tts_")) return 20;
     return 10;
   };
+  // If scores tie, prefer incoming (client just changed it).
   return score(b) > score(a) ? b : a;
 }
