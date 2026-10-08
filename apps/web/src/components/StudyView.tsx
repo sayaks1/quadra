@@ -615,15 +615,24 @@ function ExampleNotes({ notes }: { notes: string }) {
     .split(/\n+/)
     .map((l) => l.trim())
     .filter(Boolean);
-  const example = lines[0] ?? notes.trim();
-  const translation = lines.length > 1 ? lines.slice(1).join(" ") : null;
+  if (!lines.length) return null;
+
+  // Format: target example, English translation, then optional usage context.
+  const example = lines[0] ?? "";
+  const translation = lines[1] ?? null;
+  const context = lines.length > 2 ? lines.slice(2).join(" ") : null;
+  const hasTargetScript = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/.test(example);
+  const exampleLabel = /^ex\.?\s/i.test(example)
+    ? example
+    : hasTargetScript
+      ? `ex. ${example}`
+      : example;
 
   return (
     <div className="mt-6 space-y-1.5 break-words text-[14.5px] leading-relaxed [overflow-wrap:anywhere]">
-      <p className="text-ink">
-        {/^ex\.?\s/i.test(example) ? example : `ex. ${example}`}
-      </p>
+      <p className="text-ink">{exampleLabel}</p>
       {translation ? <p className="text-stone">{translation}</p> : null}
+      {context ? <p className="text-stone/90 text-[13.5px]">{context}</p> : null}
     </div>
   );
 }

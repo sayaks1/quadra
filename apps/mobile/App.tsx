@@ -202,11 +202,7 @@ export default function App() {
                   {current.reading ? ` (${current.reading})` : ""}
                 </Text>
                 {current.notes.trim() ? (
-                  <Text style={styles.cardBack}>
-                    {/^ex\.?\s/i.test(current.notes.trim())
-                      ? current.notes.trim()
-                      : `ex. ${current.notes.trim()}`}
-                  </Text>
+                  <NotesBlock notes={current.notes} />
                 ) : null}
               </>
             ) : null}
@@ -341,6 +337,30 @@ export default function App() {
   );
 }
 
+function NotesBlock({ notes }: { notes: string }) {
+  const lines = notes
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!lines.length) return null;
+  const example = lines[0] ?? "";
+  const translation = lines[1] ?? null;
+  const context = lines.length > 2 ? lines.slice(2).join(" ") : null;
+  const hasTargetScript = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/.test(example);
+  const exampleLabel = /^ex\.?\s/i.test(example)
+    ? example
+    : hasTargetScript
+      ? `ex. ${example}`
+      : example;
+  return (
+    <View style={{ marginTop: 16, gap: 4 }}>
+      <Text style={styles.cardBack}>{exampleLabel}</Text>
+      {translation ? <Text style={styles.cardNoteMeta}>{translation}</Text> : null}
+      {context ? <Text style={styles.cardNoteContext}>{context}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.field },
   center: { alignItems: "center", justifyContent: "center" },
@@ -415,7 +435,9 @@ const styles = StyleSheet.create({
     minHeight: 260,
   },
   cardTerm: { marginTop: 24, fontSize: 34, color: colors.ink },
-  cardBack: { fontSize: 20, color: colors.ink, lineHeight: 28 },
+  cardBack: { fontSize: 18, color: colors.ink, lineHeight: 26 },
+  cardNoteMeta: { fontSize: 15, color: colors.stone, lineHeight: 22 },
+  cardNoteContext: { fontSize: 13, color: colors.stone, lineHeight: 18, marginTop: 2 },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "rgba(181,178,169,0.5)",

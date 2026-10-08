@@ -17,7 +17,10 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
    Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.  
    For short Japanese katakana loanwords, use hiragana TTS text and about `-20%` rate so it does not sound rushed.
 
-4. **Japanese examples use hiragana readings, never romaji.**  
+4. **Every card gets a simple example + usage context.**  
+   Put in `notes`: (1) one short target-language example sentence, (2) English translation on the next line, (3) brief usage context when the gloss alone is ambiguous (register, near-synonyms, “not X”, collocations). Never leave provenance-only text like `From sticky notes.` as the example — replace it, keeping any useful disambiguation.
+
+5. **Japanese examples use hiragana readings, never romaji.**  
    After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
 
-5. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.
+6. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.
