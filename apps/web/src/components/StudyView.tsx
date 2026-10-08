@@ -454,8 +454,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
             (current.anki.phase === "learning" && current.anki.reps === 0)
               ? "New"
               : current.anki.phase === "learning" || current.anki.phase === "relearning"
-                ? `Learning · step ${current.anki.learningStep + 1} · seen ${current.anki.reps} times`
-                : `Review · seen ${current.anki.reps} times`}
+                ? "Learning"
+                : "Review"}
           </div>
           <FitText
             maxPx={displayMaxPx}
