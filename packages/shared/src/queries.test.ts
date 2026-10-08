@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createInitialAnki } from "./anki";
-import { dueCards, newCardsIntroducedToday } from "./queries";
+import {
+  distributeNewAmongReviews,
+  dueCards,
+  insertLearningIntoQueue,
+  newCardsIntroducedToday,
+  orderStudyQueue,
+} from "./queries";
 import { DEFAULT_ANKI_CONFIG, type Card, type ReviewLog } from "./types";
 
 function makeCard(
@@ -238,6 +244,119 @@ describe("new cards per day", () => {
     assert.equal(
       allDue.filter((c) => c.deckId === "deck_zh" && c.anki.phase === "new").length,
       5,
+    );
+  });
+});
+
+describe("Anki-like new/review interleaving", () => {
+  const now = new Date("2026-10-07T15:00:00.000Z");
+
+  it("spreads new cards through reviews instead of dumping them first", () => {
+    const reviews = Array.from({ length: 10 }, (_, i) =>
+      makeCard(`rev_${i}`, "2026-09-01T00:00:00.000Z", {
+        phase: "review",
+        reps: 3,
+        intervalDays: 3,
+        due: new Date(Date.UTC(2026, 9, 7, 10, 0, i)).toISOString(),
+      }),
+    );
+    const news = Array.from({ length: 5 }, (_, i) =>
+      makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      ),
+    );
+    const due = dueCards([...reviews, ...news], now, undefined, DEFAULT_ANKI_CONFIG, []);
+    assert.equal(due.length, 15);
+    // Must not open with every new card before any review.
+    const firstFive = due.slice(0, 5).map((c) => c.anki.phase);
+    assert.ok(firstFive.includes("review"), `expected a review early, got ${firstFive}`);
+    assert.ok(
+      firstFive.some((p) => p === "new"),
+      "expected at least one new card mixed into the early queue",
+    );
+    // New cards should appear at multiple positions, not a single block at index 0.
+    const newIndexes = due
+      .map((c, i) => (c.anki.phase === "new" ? i : -1))
+      .filter((i) => i >= 0);
+    assert.equal(newIndexes.length, 5);
+    assert.ok(newIndexes[0]! > 0 || newIndexes[4]! < due.length - 1);
+    assert.ok(
+      newIndexes[4]! - newIndexes[0]! >= 4,
+      `new cards should be spread, indexes=${newIndexes}`,
+    );
+  });
+
+  it("shows due learning cards before unseen new cards", () => {
+    const learning = makeCard("learn_1", "2026-09-01T00:00:00.000Z", {
+      phase: "learning",
+      reps: 1,
+      learningStep: 0,
+      due: "2026-10-07T14:59:00.000Z",
+    });
+    const news = Array.from({ length: 5 }, (_, i) =>
+      makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      ),
+    );
+    const due = orderStudyQueue([learning, ...news], now);
+    assert.equal(due[0]?.id, "learn_1");
+  });
+
+  it("parks a just-answered learning card mid-queue, not behind every new card", () => {
+    const news = Array.from({ length: 12 }, (_, i) =>
+      makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      ),
+    );
+    const learning = makeCard("learn_1", "2026-09-01T00:00:00.000Z", {
+      phase: "learning",
+      reps: 1,
+      learningStep: 0,
+      // 1 minute step — ~4 cards ahead at 15s/card
+      due: new Date(now.getTime() + 60_000).toISOString(),
+    });
+    const queued = insertLearningIntoQueue(news, learning, now);
+    const idx = queued.findIndex((c) => c.id === "learn_1");
+    assert.ok(idx >= 1, "should not be immediate next when step is in the future");
+    assert.ok(idx <= 6, `should return around the 1m mark, got index ${idx}`);
+    assert.ok(idx < news.length, "must not be buried after every new card");
+  });
+
+  it("uses the same interleave math for any language/deck mix", () => {
+    const reviews = Array.from({ length: 6 }, (_, i) => {
+      const c = makeCard(`rev_${i}`, "2026-09-01T00:00:00.000Z", {
+        phase: "review",
+        reps: 2,
+        intervalDays: 2,
+        due: new Date(Date.UTC(2026, 9, 7, 10, 0, i)).toISOString(),
+      });
+      return { ...c, deckId: i % 2 === 0 ? "deck_ja" : "deck_ko" };
+    });
+    const news = Array.from({ length: 3 }, (_, i) => {
+      const c = makeCard(
+        `new_${i}`,
+        new Date(Date.UTC(2026, 9, 7, 4, 0, i)).toISOString(),
+      );
+      return { ...c, deckId: i % 2 === 0 ? "deck_ja" : "deck_zh" };
+    });
+    const mixed = distributeNewAmongReviews(reviews, news);
+    const viaOrder = orderStudyQueue([...reviews, ...news], now);
+    assert.deepEqual(
+      viaOrder.map((c) => c.id),
+      mixed.map((c) => c.id),
+    );
+    // Pattern depends only on counts, not language labels on the cards.
+    assert.deepEqual(
+      mixed.map((c) => (c.anki.phase === "new" ? "N" : "R")).join(""),
+      distributeNewAmongReviews(
+        reviews.map((c) => ({ ...c, deckId: "deck_x" })),
+        news.map((c) => ({ ...c, deckId: "deck_x" })),
+      )
+        .map((c) => (c.anki.phase === "new" ? "N" : "R"))
+        .join(""),
     );
   });
 });

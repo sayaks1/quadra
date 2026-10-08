@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   deckStats,
+  insertLearningIntoQueue,
   shouldRequeueInSession,
   type Card,
   type Rating,
@@ -226,7 +227,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
       setQueue((q) => {
         const rest = q.slice(1);
         if (updated && shouldRequeueInSession(updated)) {
-          return [...rest, updated];
+          // Park the learning step where its delay lands — not behind every new card.
+          return insertLearningIntoQueue(rest, updated);
         }
         return rest;
       });

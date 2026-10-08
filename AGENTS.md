@@ -21,7 +21,7 @@ These are standing preferences for this repo. Apply on every vocab import withou
 
 6. Card orientation: English (`meaning`) front; target language (`term`) back — including Korean Hangul as the target script.
 
-7. Study uses an Anki-style **new cards per day** cap (default **20** via `settings.anki.newCardsPerDay`). Do not remove or bypass this when changing queue logic.
+7. Study uses an Anki-style **new cards per day** cap (default **20** via `settings.anki.newCardsPerDay`). Do not remove or bypass this when changing queue logic. New cards must be **interleaved with reviews** (not dumped first); learning steps return mid-session. Same queue rules for every language/deck.
 
 Also mirrored in `.cursor/rules/vocab-imports.mdc` (`alwaysApply: true`).
 

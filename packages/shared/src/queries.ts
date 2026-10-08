@@ -80,6 +80,102 @@ export function newCardsIntroducedToday(
   return n;
 }
 
+/** Rough seconds per card — used to place learning steps mid-queue. */
+const QUEUE_CARD_SECONDS = 15;
+
+function dueTime(card: Card) {
+  return new Date(card.anki.due).getTime();
+}
+
+/**
+ * Spread new cards evenly through the review pile (Anki "mix new/reviews").
+ * Same algorithm for every deck/language — no language-specific branching.
+ */
+export function distributeNewAmongReviews(reviews: Card[], news: Card[]): Card[] {
+  if (!news.length) return reviews;
+  if (!reviews.length) return news;
+  const result: Card[] = [];
+  const R = reviews.length;
+  const N = news.length;
+  let ri = 0;
+  for (let i = 0; i < N; i++) {
+    const targetReviews = Math.floor(((i + 1) * R) / (N + 1));
+    while (ri < targetReviews) {
+      result.push(reviews[ri++]);
+    }
+    result.push(news[i]);
+  }
+  while (ri < R) result.push(reviews[ri++]);
+  return result;
+}
+
+/**
+ * Insert a learning card where its step delay should land in the session,
+ * instead of burying it behind every remaining new card.
+ */
+export function insertLearningIntoQueue(
+  rest: Card[],
+  card: Card,
+  now = new Date(),
+): Card[] {
+  const dueMs = dueTime(card);
+  const nowMs = now.getTime();
+  const delayMs = Math.max(0, dueMs - nowMs);
+  // Aim for the step delay; always leave at least one other card first when
+  // the step is still in the future.
+  let insertAt = Math.round(delayMs / (QUEUE_CARD_SECONDS * 1000));
+  if (dueMs > nowMs + 2000) insertAt = Math.max(1, insertAt);
+  insertAt = Math.min(rest.length, insertAt);
+
+  // Prefer sitting ahead of a long run of unseen new cards once the step is due.
+  if (dueMs <= nowMs) {
+    const firstNew = rest.findIndex(isUnseenNew);
+    if (firstNew >= 0) insertAt = Math.min(insertAt, firstNew);
+  }
+
+  const next = rest.slice();
+  next.splice(insertAt, 0, card);
+  return next;
+}
+
+/**
+ * Anki-like display order (identical for all languages):
+ * 1. Learning/relearning cards that are already due
+ * 2. Reviews with new cards distributed evenly among them
+ * 3. Learn-ahead learning cards parked at their estimated step position
+ */
+export function orderStudyQueue(cards: Card[], now = new Date()): Card[] {
+  const nowMs = now.getTime();
+  const learningDue: Card[] = [];
+  const learningLater: Card[] = [];
+  const reviews: Card[] = [];
+  const news: Card[] = [];
+
+  for (const c of cards) {
+    if (c.anki.phase === "learning" || c.anki.phase === "relearning") {
+      if (dueTime(c) <= nowMs) learningDue.push(c);
+      else learningLater.push(c);
+    } else if (isUnseenNew(c)) {
+      news.push(c);
+    } else {
+      reviews.push(c);
+    }
+  }
+
+  learningDue.sort((a, b) => dueTime(a) - dueTime(b));
+  learningLater.sort((a, b) => dueTime(a) - dueTime(b));
+  reviews.sort((a, b) => dueTime(a) - dueTime(b));
+  news.sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+
+  let queue = [...learningDue, ...distributeNewAmongReviews(reviews, news)];
+  for (const c of learningLater) {
+    queue = insertLearningIntoQueue(queue, c, now);
+  }
+  return queue;
+}
+
 export function dueCards(
   cards: Card[],
   now = new Date(),
@@ -92,9 +188,7 @@ export function dueCards(
   const pool = activeCards(cards).filter((c) =>
     deckId ? c.deckId === deckId : true,
   );
-  const due = pool
-    .filter((c) => isDue(c, now, config, { learnAhead: true }))
-    .sort((a, b) => new Date(a.anki.due).getTime() - new Date(b.anki.due).getTime());
+  const due = pool.filter((c) => isDue(c, now, config, { learnAhead: true }));
 
   // Budget is per deck (Anki-style): studying Chinese must not shrink Japanese.
   const idsByDeck = new Map<string, Set<string>>();
@@ -130,7 +224,8 @@ export function dueCards(
     for (const c of news.slice(0, slotsLeft)) allowedNew.add(c.id);
   }
 
-  return due.filter((c) => !isUnseenNew(c) || allowedNew.has(c.id));
+  const filtered = due.filter((c) => !isUnseenNew(c) || allowedNew.has(c.id));
+  return orderStudyQueue(filtered, now);
 }
 
 export function cardsAddedToday(cards: Card[], now = new Date()) {

@@ -16,6 +16,7 @@ import {
   DEFAULT_ANKI_CONFIG,
   dueCards,
   formatInterval,
+  insertLearningIntoQueue,
   previewIntervals,
   shouldRequeueInSession,
   type Card,
@@ -159,7 +160,9 @@ export default function App() {
       });
       setQueue((q) => {
         const rest = q.slice(1);
-        if (shouldRequeueInSession(updated)) return [...rest, updated];
+        if (shouldRequeueInSession(updated)) {
+          return insertLearningIntoQueue(rest, updated, now);
+        }
         return rest;
       });
       setRevealed(false);
