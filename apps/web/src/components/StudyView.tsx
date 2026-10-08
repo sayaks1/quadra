@@ -116,16 +116,50 @@ export function StudyView({ deckId }: { deckId?: string }) {
     const spoken = speakableTerm(current.term, current.reading);
 
     if (audioUrl) {
-      let el = audioElRef.current;
-      if (!el || el.src !== new URL(audioUrl, window.location.href).href) {
-        el = new Audio(audioUrl);
-        el.preload = "auto";
-        audioElRef.current = el;
-      }
-      el.currentTime = 0;
-      void el.play().catch(() => {
+      // Absolute URL — relative src can fail on some mobile WebViews.
+      const absolute = new URL(audioUrl, window.location.href).href;
+      const el = new Audio(absolute);
+      el.preload = "auto";
+      audioElRef.current = el;
+
+      let finished = false;
+      const fallback = () => {
+        if (finished || audioElRef.current !== el) return;
+        finished = true;
         void speakFallback(spoken, deck?.language);
-      });
+      };
+
+      const tryPlay = () => {
+        if (finished || audioElRef.current !== el) return;
+        void el
+          .play()
+          .then(() => {
+            finished = true;
+          })
+          .catch(() => {
+            // Recreate once — helps when a cached/aborted element won't restart.
+            const retry = new Audio(absolute);
+            retry.preload = "auto";
+            audioElRef.current = retry;
+            void retry.play().then(() => {
+              finished = true;
+            }).catch(fallback);
+          });
+      };
+
+      if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        tryPlay();
+      } else {
+        el.addEventListener("canplay", tryPlay, { once: true });
+        el.addEventListener("error", fallback, { once: true });
+        el.load();
+        // If canplay already fired (or never will), retry once data is present.
+        window.setTimeout(() => {
+          if (!finished && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            tryPlay();
+          }
+        }, 400);
+      }
       return;
     }
 
