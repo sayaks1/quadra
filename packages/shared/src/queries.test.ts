@@ -359,4 +359,49 @@ describe("Anki-like new/review interleaving", () => {
         .join(""),
     );
   });
+
+  it("builds identical new/review patterns for mirrored ja/ko/zh decks", () => {
+    const config = { ...DEFAULT_ANKI_CONFIG, newCardsPerDay: 20 };
+    const langs = ["deck_ja", "deck_ko", "deck_zh"] as const;
+
+    function mirroredDeck(deckId: string): Card[] {
+      const reviews = Array.from({ length: 8 }, (_, i) => {
+        const c = makeCard(`${deckId}_rev_${i}`, "2026-09-01T00:00:00.000Z", {
+          phase: "review",
+          reps: 4,
+          intervalDays: 5,
+          due: new Date(Date.UTC(2026, 9, 7, 9, 0, i)).toISOString(),
+        });
+        return { ...c, deckId };
+      });
+      const news = Array.from({ length: 25 }, (_, i) => {
+        const c = makeCard(
+          `${deckId}_new_${i}`,
+          new Date(Date.UTC(2026, 9, 7, 5, 0, i)).toISOString(),
+        );
+        return { ...c, deckId };
+      });
+      const learning = makeCard(`${deckId}_learn`, "2026-09-01T00:00:00.000Z", {
+        phase: "learning",
+        reps: 1,
+        learningStep: 0,
+        due: "2026-10-07T14:58:00.000Z",
+      });
+      return [{ ...learning, deckId }, ...reviews, ...news];
+    }
+
+    const patterns = langs.map((deckId) => {
+      const due = dueCards(mirroredDeck(deckId), now, deckId, config, []);
+      return {
+        length: due.length,
+        newCount: due.filter((c) => c.anki.phase === "new").length,
+        phases: due.map((c) => c.anki.phase).join(","),
+        first: due[0]?.anki.phase,
+      };
+    });
+
+    assert.equal(patterns[0]!.newCount, 20);
+    assert.deepEqual(patterns[0], patterns[1]);
+    assert.deepEqual(patterns[0], patterns[2]);
+  });
 });
