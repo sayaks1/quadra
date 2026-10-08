@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  cardStatusLabel,
   cardsAddedToday,
   cardsForDeck,
   deckStats,
@@ -140,16 +139,19 @@ export function CardsView({
           <ul>
             {list.map((card) => {
               const d = decks.find((x) => x.id === card.deckId);
-              const status = cardStatusLabel(card);
-              const dot =
+              const phaseLabel =
                 card.anki.phase === "new" ||
                 (card.anki.phase === "learning" && card.anki.reps === 0)
+                  ? "New"
+                  : card.anki.phase === "learning" || card.anki.phase === "relearning"
+                    ? "Learning"
+                    : "Review";
+              const dot =
+                phaseLabel === "New"
                   ? "empty"
-                  : status === "new"
-                    ? "empty"
-                    : card.anki.phase === "learning" || card.anki.phase === "relearning"
-                      ? "oxblood"
-                      : "stone";
+                  : phaseLabel === "Learning"
+                    ? "oxblood"
+                    : "stone";
               return (
                 <li key={card.id}>
                   <button
@@ -191,8 +193,8 @@ export function CardsView({
                         {formatAddedAt(card.createdAt)}
                       </span>
                     ) : null}
-                    <span className="w-12 shrink-0 text-right text-[12px] text-stone">
-                      {status}
+                    <span className="w-16 shrink-0 text-right text-[12px] text-stone">
+                      {phaseLabel}
                     </span>
                   </button>
                 </li>
