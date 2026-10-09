@@ -140,4 +140,13 @@ describe("Anki study-day boundary", () => {
     assert.match(previewIntervalLabel(c, "easy", now, config), /^\d+d$/);
     assert.equal(previewIntervalLabel(c, "again", now, config), "10m");
   });
+
+  it("formats long review intervals as decimal months", () => {
+    assert.equal(formatReviewIntervalDays(12), "12d");
+    assert.equal(formatReviewIntervalDays(31), "31d");
+    assert.equal(formatReviewIntervalDays(69), "2.3mo");
+    assert.equal(formatReviewIntervalDays(50), "1.7mo");
+    assert.equal(formatReviewIntervalDays(365), "1y");
+    assert.equal(formatReviewIntervalDays(400), "1.1y");
+  });
 });

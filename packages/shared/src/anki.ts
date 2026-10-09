@@ -329,19 +329,11 @@ export function formatInterval(from: Date, to: Date): string {
   // Prefer whole days when the span is roughly a day+ (Anki review fuzz / day boundary).
   const daysExact = ms / 86400_000;
   if (daysExact >= 0.75) {
-    const days = Math.max(1, Math.round(daysExact));
-    if (days < 30) return `${days}d`;
-    const months = Math.round(days / 30);
-    if (months < 12) return `${months}mo`;
-    return `${Math.round(months / 12)}y`;
+    return formatReviewIntervalDays(daysExact);
   }
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d`;
-  const months = Math.round(days / 30);
-  if (months < 12) return `${months}mo`;
-  return `${Math.round(months / 12)}y`;
+  return formatReviewIntervalDays(hours / 24);
 }
 
 export function isDue(
