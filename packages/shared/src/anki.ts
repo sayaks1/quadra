@@ -273,6 +273,35 @@ export function previewIntervals(
   };
 }
 
+/**
+ * Anki-style button label for a rating:
+ * learning/relearning → minutes; review → whole days (never “5h” for a 1d interval).
+ */
+export function previewIntervalLabel(
+  card: Card,
+  rating: Rating,
+  now = new Date(),
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+): string {
+  const next = applyRating(card, rating, now, config).anki;
+  if (next.phase === "learning" || next.phase === "relearning") {
+    return formatLearningInterval(now, new Date(next.due));
+  }
+  return `${Math.max(1, Math.round(next.intervalDays))}d`;
+}
+
+/** Minute-scale labels for learning steps (Anki does not show multi-hour steps here). */
+export function formatLearningInterval(from: Date, to: Date): string {
+  const minutes = Math.max(0, Math.round((to.getTime() - from.getTime()) / 60000));
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  // Long learning delays are still shown in minutes/hours, but round to hours only
+  // when ≥60m (custom steps). Prefer minutes under 10h to stay Anki-like.
+  if (minutes < 600) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h`;
+}
+
 /** Still in learning/relearning — keep in session until graduated to day+ review */
 export function shouldRequeueInSession(card: Card): boolean {
   return card.anki.phase === "learning" || card.anki.phase === "relearning" || card.anki.phase === "new";
@@ -283,6 +312,15 @@ export function formatInterval(from: Date, to: Date): string {
   const minutes = Math.round(ms / 60000);
   if (minutes < 1) return "<1m";
   if (minutes < 60) return `${minutes}m`;
+  // Prefer whole days when the span is roughly a day+ (Anki review fuzz / day boundary).
+  const daysExact = ms / 86400_000;
+  if (daysExact >= 0.75) {
+    const days = Math.max(1, Math.round(daysExact));
+    if (days < 30) return `${days}d`;
+    const months = Math.round(days / 30);
+    if (months < 12) return `${months}mo`;
+    return `${Math.round(months / 12)}y`;
+  }
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h`;
   const days = Math.round(hours / 24);

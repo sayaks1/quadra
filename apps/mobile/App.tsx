@@ -15,9 +15,8 @@ import {
   createSeedStore,
   DEFAULT_ANKI_CONFIG,
   dueCards,
-  formatInterval,
   insertLearningIntoQueue,
-  previewIntervals,
+  previewIntervalLabel,
   shouldRequeueInSession,
   type Card,
   type QuadraStore,
@@ -139,7 +138,6 @@ export default function App() {
     }
 
     const now = new Date();
-    const intervals = previewIntervals(current, now, config);
     const rate = (rating: Rating) => {
       const newIntro = current.anki.phase === "new";
       const updated = applyRating(current, rating, now, config);
@@ -248,7 +246,7 @@ export default function App() {
                           primary && { color: "rgba(255,255,255,0.8)" },
                         ]}
                       >
-                        {formatInterval(now, new Date(intervals[key]))}
+                        {previewIntervalLabel(current, key, now, config)}
                       </Text>
                     </Pressable>
                   );

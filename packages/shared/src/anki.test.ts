@@ -4,6 +4,7 @@ import {
   applyRating,
   createInitialAnki,
   isDue,
+  previewIntervalLabel,
   previewIntervals,
   reviewDueAt,
   startOfStudyDay,
@@ -121,5 +122,21 @@ describe("Anki study-day boundary", () => {
       isDue(c, new Date(now.getTime() + 60_000), config),
       true,
     );
+  });
+
+  it("shows review ratings as whole days, not leftover hours to 4am", () => {
+    // Late evening — next review lands at study-day 4am (~5h away), but Anki shows Nd.
+    const now = new Date();
+    now.setHours(23, 0, 0, 0);
+    const c = card({
+      phase: "review",
+      reps: 5,
+      intervalDays: 1,
+      ease: 2.5,
+      due: now.toISOString(),
+    });
+    assert.equal(previewIntervalLabel(c, "good", now, config), "3d"); // round(1 * 2.5)
+    assert.match(previewIntervalLabel(c, "easy", now, config), /^\d+d$/);
+    assert.equal(previewIntervalLabel(c, "again", now, config), "10m");
   });
 });
