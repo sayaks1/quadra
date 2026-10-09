@@ -9,12 +9,41 @@ function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
 }
 
-function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 86400_000);
-}
-
 function clampEase(ease: number) {
   return Math.max(1.3, ease);
+}
+
+function dayStartHour(config: AnkiConfig) {
+  const h = config.dayStartsAtHour ?? DEFAULT_ANKI_CONFIG.dayStartsAtHour;
+  return Math.min(23, Math.max(0, Math.round(h)));
+}
+
+/**
+ * Start of the current Anki study day (local time), using "next day starts at".
+ * Before that hour, it is still the previous calendar day's study day.
+ */
+export function startOfStudyDay(
+  now = new Date(),
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+): Date {
+  const hour = dayStartHour(config);
+  const start = new Date(now);
+  start.setHours(hour, 0, 0, 0);
+  if (now.getHours() < hour) {
+    start.setDate(start.getDate() - 1);
+  }
+  return start;
+}
+
+/** Due instant for a review interval: start of study day + N days (Anki-style). */
+export function reviewDueAt(
+  now: Date,
+  intervalDays: number,
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+): Date {
+  const due = startOfStudyDay(now, config);
+  due.setDate(due.getDate() + Math.max(1, Math.round(intervalDays)));
+  return due;
 }
 
 export function createInitialAnki(now = new Date(), config: AnkiConfig = DEFAULT_ANKI_CONFIG): AnkiState {
@@ -56,14 +85,16 @@ function graduate(
   now: Date,
   intervalDays: number,
   easeDelta: number,
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
 ): AnkiState {
+  const days = Math.max(1, intervalDays);
   return {
     ...state,
     phase: "review",
     learningStep: 0,
-    intervalDays: Math.max(1, intervalDays),
+    intervalDays: days,
     ease: clampEase(state.ease + easeDelta),
-    due: addDays(now, Math.max(1, intervalDays)).toISOString(),
+    due: reviewDueAt(now, days, config).toISOString(),
     reps: state.reps + 1,
     lastReview: now.toISOString(),
   };
@@ -125,23 +156,19 @@ function applyLearningRating(
   }
 
   if (rating === "easy") {
-    return graduate(state, now, easyGraduateDays(state, config), 0.15);
+    return graduate(state, now, easyGraduateDays(state, config), 0.15, config);
   }
 
   // Good
   const nextStep = state.learningStep + 1;
   if (nextStep >= steps.length) {
-    const ivl =
-      phase === "relearning"
-        ? Math.max(config.minimumInterval, Math.round(state.intervalDays * 0) || config.graduatingInterval)
-        : config.graduatingInterval;
     // Relearning Good after steps → back to review with at least graduating interval
     // (Anki uses new interval % of previous; we use graduatingInterval as floor)
     const reviewIvl =
       phase === "relearning"
         ? Math.max(config.minimumInterval, config.graduatingInterval)
         : config.graduatingInterval;
-    return graduate(state, now, reviewIvl, 0);
+    return graduate(state, now, reviewIvl, 0, config);
   }
 
   return enterLearning(state, now, config, phase, nextStep);
@@ -200,7 +227,7 @@ function applyReviewRating(
     learningStep: 0,
     intervalDays: nextIvl,
     ease,
-    due: addDays(now, nextIvl).toISOString(),
+    due: reviewDueAt(now, nextIvl, config).toISOString(),
     reps: state.reps + 1,
     lastReview: now.toISOString(),
   };
@@ -272,17 +299,25 @@ export function isDue(
   opts?: { learnAhead?: boolean },
 ): boolean {
   if (card.deletedAt) return false;
-  const due = new Date(card.anki.due).getTime();
+  const due = new Date(card.anki.due);
   const t = now.getTime();
-  if (due <= t) return true;
-  if (
-    opts?.learnAhead &&
-    (card.anki.phase === "learning" || card.anki.phase === "relearning") &&
-    due - t <= config.learnAheadSeconds * 1000
-  ) {
-    return true;
+
+  // Learning steps stay minute-accurate.
+  if (card.anki.phase === "learning" || card.anki.phase === "relearning") {
+    if (due.getTime() <= t) return true;
+    if (
+      opts?.learnAhead &&
+      due.getTime() - t <= config.learnAheadSeconds * 1000
+    ) {
+      return true;
+    }
+    return false;
   }
-  return false;
+
+  // Reviews + new: due on the whole study day (Anki day boundary), not clock time.
+  const dueDay = startOfStudyDay(due, config).getTime();
+  const today = startOfStudyDay(now, config).getTime();
+  return dueDay <= today;
 }
 
 export function cardStatusLabel(card: Card, now = new Date()): string {

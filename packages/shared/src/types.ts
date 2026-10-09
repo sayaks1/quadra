@@ -80,6 +80,12 @@ export interface AnkiConfig {
    * Already-introduced learning/review cards are not limited by this.
    */
   newCardsPerDay: number;
+  /**
+   * Anki "next day starts at" hour in local time (0–23). Reviews due anytime on a
+   * study day are available from this hour; finishing the morning queue won't
+   * resurface same-day reviews at evening clock times.
+   */
+  dayStartsAtHour: number;
 }
 
 export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
@@ -94,6 +100,7 @@ export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
   minimumInterval: 1,
   learnAheadSeconds: 20 * 60,
   newCardsPerDay: 20,
+  dayStartsAtHour: 4,
 };
 
 /**

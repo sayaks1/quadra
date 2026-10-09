@@ -141,6 +141,17 @@ export function SettingsView() {
               })
             }
           />
+          <NumberField
+            label="Next day starts at (hour)"
+            value={anki.dayStartsAtHour ?? DEFAULT_ANKI_CONFIG.dayStartsAtHour}
+            onChange={(v) =>
+              updateSettings({
+                anki: {
+                  dayStartsAtHour: Math.min(23, Math.max(0, Math.round(v))),
+                },
+              })
+            }
+          />
         </section>
 
         <div className="flex flex-wrap gap-2">

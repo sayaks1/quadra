@@ -100,7 +100,9 @@ describe("new cards per day", () => {
           phase: "review",
           reps: 1,
           intervalDays: 1,
-          due: new Date(Date.UTC(2026, 9, 8)).toISOString(),
+          // Due at study-day start on Oct 8 (not midnight — that is still Oct 7
+          // under Anki's default "next day starts at 4").
+          due: new Date(Date.UTC(2026, 9, 8, 4, 0, 0)).toISOString(),
         },
       };
     }

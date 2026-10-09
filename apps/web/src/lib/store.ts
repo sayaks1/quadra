@@ -75,6 +75,8 @@ function normalizeAnki(anki?: Partial<AnkiConfig> | null): AnkiConfig {
     ],
     newCardsPerDay:
       anki?.newCardsPerDay ?? DEFAULT_ANKI_CONFIG.newCardsPerDay,
+    dayStartsAtHour:
+      anki?.dayStartsAtHour ?? DEFAULT_ANKI_CONFIG.dayStartsAtHour,
   };
 }
 

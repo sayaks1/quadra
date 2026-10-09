@@ -1,4 +1,4 @@
-import { isDue } from "./anki";
+import { isDue, startOfStudyDay } from "./anki";
 import type { AnkiConfig, Card, Deck, Rating, ReviewLog } from "./types";
 import { DEFAULT_ANKI_CONFIG } from "./types";
 
@@ -12,12 +12,6 @@ export function activeDecks(decks: Deck[]) {
 
 export function cardsForDeck(cards: Card[], deckId: string) {
   return activeCards(cards).filter((c) => c.deckId === deckId);
-}
-
-function startOfLocalDay(now: Date) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  return start;
 }
 
 /** True for cards that have never been answered (still in the new pile). */
@@ -36,9 +30,10 @@ export function newCardsIntroducedToday(
   now = new Date(),
   cardIds?: Set<string>,
   cards: Card[] = [],
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
 ): number {
   if (!reviews.length) return 0;
-  const start = startOfLocalDay(now).getTime();
+  const start = startOfStudyDay(now, config).getTime();
   const end = now.getTime();
   const cardById = new Map(cards.map((c) => [c.id, c]));
 
@@ -219,6 +214,7 @@ export function dueCards(
       now,
       idsByDeck.get(id) ?? new Set(),
       pool,
+      config,
     );
     const slotsLeft = Math.max(0, limit - introduced);
     for (const c of news.slice(0, slotsLeft)) allowedNew.add(c.id);
@@ -228,8 +224,12 @@ export function dueCards(
   return orderStudyQueue(filtered, now);
 }
 
-export function cardsAddedToday(cards: Card[], now = new Date()) {
-  const start = startOfLocalDay(now);
+export function cardsAddedToday(
+  cards: Card[],
+  now = new Date(),
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+) {
+  const start = startOfStudyDay(now, config);
   return activeCards(cards)
     .filter((c) => new Date(c.createdAt) >= start)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -264,33 +264,37 @@ export function deckStats(
   return { total: list.length, neu, learning, due, newDue, mature };
 }
 
-export function answeredToday(reviews: { reviewedAt: string }[], now = new Date()) {
-  const start = startOfLocalDay(now);
+export function answeredToday(
+  reviews: { reviewedAt: string }[],
+  now = new Date(),
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+) {
+  const start = startOfStudyDay(now, config);
   return reviews.filter((r) => new Date(r.reviewedAt) >= start).length;
 }
 
-function dayKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+function studyDayKey(d: Date, config: AnkiConfig = DEFAULT_ANKI_CONFIG) {
+  const start = startOfStudyDay(d, config);
+  return `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
 }
 
-/** Consecutive days ending today (or yesterday) with at least one review. */
-export function studyStreakDays(reviews: { reviewedAt: string }[], now = new Date()) {
+/** Consecutive study days ending today (or yesterday) with at least one review. */
+export function studyStreakDays(
+  reviews: { reviewedAt: string }[],
+  now = new Date(),
+  config: AnkiConfig = DEFAULT_ANKI_CONFIG,
+) {
   if (!reviews.length) return 0;
   const days = new Set(
-    reviews.map((r) => {
-      const d = new Date(r.reviewedAt);
-      d.setHours(0, 0, 0, 0);
-      return dayKey(d);
-    }),
+    reviews.map((r) => studyDayKey(new Date(r.reviewedAt), config)),
   );
-  const cursor = new Date(now);
-  cursor.setHours(0, 0, 0, 0);
-  if (!days.has(dayKey(cursor))) {
+  const cursor = startOfStudyDay(now, config);
+  if (!days.has(studyDayKey(cursor, config))) {
     cursor.setDate(cursor.getDate() - 1);
-    if (!days.has(dayKey(cursor))) return 0;
+    if (!days.has(studyDayKey(cursor, config))) return 0;
   }
   let streak = 0;
-  while (days.has(dayKey(cursor))) {
+  while (days.has(studyDayKey(cursor, config))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
