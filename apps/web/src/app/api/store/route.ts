@@ -74,11 +74,11 @@ export async function PUT(req: Request) {
           { status: 409 },
         );
       }
-      // Prefer regenerated TTS keys / existing audio over stale client copies.
+      // Prefer regenerated TTS / filled sides over stale client copies.
       if (cloud?.cards?.length && Array.isArray(body.cards)) {
         toWrite = {
           ...body,
-          cards: mergePreferAudio(body.cards, cloud.cards),
+          cards: mergePreferCardFields(body.cards, cloud.cards),
         };
       }
     } catch {
@@ -107,8 +107,8 @@ export async function PUT(req: Request) {
   return NextResponse.json({ ok: true, backend: "local" as const });
 }
 
-/** Keep the better audio key when a stale tab pushes older TTS paths. */
-function mergePreferAudio(
+/** Keep better audio keys and refuse blank term/meaning overwrites from stale tabs. */
+function mergePreferCardFields(
   incoming: QuadraStore["cards"],
   cloud: QuadraStore["cards"],
 ): QuadraStore["cards"] {
@@ -117,15 +117,35 @@ function mergePreferAudio(
     const remote = cloudById.get(card.id);
     if (!remote) return card;
     const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
-    if (nextKey === (card.audioKey ?? null)) return card;
+    const term = preferFilledText(card.term, remote.term);
+    const meaning = preferFilledText(card.meaning, remote.meaning);
+    const notes = preferFilledText(card.notes, remote.notes);
+    if (
+      nextKey === (card.audioKey ?? null) &&
+      term === card.term &&
+      meaning === card.meaning &&
+      notes === card.notes
+    ) {
+      return card;
+    }
     return {
       ...card,
+      term,
+      meaning,
+      notes,
       audioKey: nextKey,
       audioSource: nextKey
         ? card.audioSource || remote.audioSource || "tts"
         : card.audioSource,
     };
   });
+}
+
+function preferFilledText(incoming: string, remote: string): string {
+  const a = (incoming ?? "").trim();
+  const b = (remote ?? "").trim();
+  if (!a && b) return remote;
+  return incoming;
 }
 
 function preferAudioKey(
