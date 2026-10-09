@@ -275,7 +275,7 @@ export function previewIntervals(
 
 /**
  * Anki-style button label for a rating:
- * learning/relearning → minutes; review → whole days (never “5h” for a 1d interval).
+ * learning/relearning → minutes; review → days, or months/years for long intervals.
  */
 export function previewIntervalLabel(
   card: Card,
@@ -287,7 +287,21 @@ export function previewIntervalLabel(
   if (next.phase === "learning" || next.phase === "relearning") {
     return formatLearningInterval(now, new Date(next.due));
   }
-  return `${Math.max(1, Math.round(next.intervalDays))}d`;
+  return formatReviewIntervalDays(next.intervalDays);
+}
+
+/** Format a review interval in days as 12d / 2.3mo / 1.2y (Anki-like). */
+export function formatReviewIntervalDays(intervalDays: number): string {
+  const days = Math.max(1, intervalDays);
+  if (days < 32) return `${Math.round(days)}d`;
+  const months = days / 30;
+  if (months < 12) {
+    const rounded = Math.round(months * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded.toFixed(0)}mo` : `${rounded.toFixed(1)}mo`;
+  }
+  const years = days / 365;
+  const rounded = Math.round(years * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded.toFixed(0)}y` : `${rounded.toFixed(1)}y`;
 }
 
 /** Minute-scale labels for learning steps (Anki does not show multi-hour steps here). */

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   applyRating,
   createInitialAnki,
+  formatReviewIntervalDays,
   isDue,
   previewIntervalLabel,
   previewIntervals,
