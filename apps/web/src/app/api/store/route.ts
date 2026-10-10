@@ -166,6 +166,16 @@ function preferFilledText(incoming: string, remote: string): string {
   return incoming;
 }
 
+function preferTermText(incoming: string, remote: string): string {
+  const a = (incoming ?? "").trim();
+  const b = (remote ?? "").trim();
+  if (!a && b) return remote;
+  if (!b) return incoming;
+  // Prefer a clean headword over a term with an example sentence glued on.
+  if (/\bex\./i.test(a) && !/\bex\./i.test(b)) return remote;
+  return incoming;
+}
+
 /** True when notes already have a dedicated pinyin line under the Chinese example. */
 function hasPinyinLine(notes: string): boolean {
   const lines = notes
