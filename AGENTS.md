@@ -22,6 +22,9 @@ These are standing preferences for this repo. Apply on every vocab import withou
 4b. **Phrases get a word breakdown.**  
    If the term is a phrase, idiom, or multi-word expression (not a single dictionary word), add a `Breakdown:` line after the translation that glosses each content word/morpheme (e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark → “ears are dark” = hard of hearing / didn’t catch it`). Keep particles brief when they matter for the meaning.
 
+4c. **Japanese multi-kanji terms get a kanji breakdown.**  
+   When the Japanese `term` has two or more kanji, add a `Breakdown:` line glossing each kanji’s contribution (e.g. `Breakdown: 機 = opportunity/machine · 会 = meet → opportunity`). Also add a short usage-context line when notes are example-only. Keep hiragana readings in examples (rule 5); do not use romaji.
+
 5. **Japanese examples: hiragana, not romaji.**  
    In example sentences, put readings for harder kanji in parentheses as **hiragana** (e.g. `彼（かれ）の話（はなし）`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
 

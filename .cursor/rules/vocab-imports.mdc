@@ -25,6 +25,9 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 4b. **Phrases get a word breakdown.**  
    For multi-word expressions / idioms / phrases, add a `Breakdown:` line after the translation glossing each content word (and important particles), e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark`. Single dictionary words do not need this.
 
+4c. **Japanese multi-kanji terms get a kanji breakdown.**  
+   When the Japanese term has two or more kanji, add `Breakdown:` glossing each kanji (e.g. `機 = opportunity/machine · 会 = meet`). Add a short usage-context line when notes are example-only.
+
 5. **Japanese examples use hiragana readings, never romaji.**  
    After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
 

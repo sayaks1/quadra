@@ -173,6 +173,10 @@ function hasPinyinLine(notes: string): boolean {
   return /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/.test(py);
 }
 
+function hasBreakdownLine(notes: string): boolean {
+  return /^breakdown\s*:/im.test(notes);
+}
+
 function preferNotesText(incoming: string, remote: string): string {
   const a = (incoming ?? "").trim();
   const b = (remote ?? "").trim();
@@ -183,6 +187,12 @@ function preferNotesText(incoming: string, remote: string): string {
   const aLine = hasPinyinLine(a);
   const bLine = hasPinyinLine(b);
   if (bLine && !aLine) return remote;
+  // Prefer notes that already include a Breakdown: (kanji/morpheme glosses).
+  const aBd = hasBreakdownLine(a);
+  const bBd = hasBreakdownLine(b);
+  if (bBd && !aBd) return remote;
+  // If both or neither have breakdown/pinyin structure, keep the richer notes.
+  if (b.length > a.length * 1.25 && (bBd || bLine)) return remote;
   return incoming;
 }
 
