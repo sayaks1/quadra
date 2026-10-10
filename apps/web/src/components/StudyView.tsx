@@ -383,6 +383,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+    const newLeftInPile =
+      stats && stats.neu > stats.newDue ? stats.neu - stats.newDue : 0;
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="w-full max-w-md rounded-[26px] bg-card px-10 py-12 text-center shadow-sm">
@@ -393,6 +395,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
           <p className="mt-3 text-[14.5px] text-stone">
             {doneCount} cards answered in {minutes} minute{minutes === 1 ? "" : "s"}.
           </p>
+          {newLeftInPile > 0 ? (
+            <p className="mt-3 text-[13.5px] text-stone">
+              {newLeftInPile} new card{newLeftInPile === 1 ? "" : "s"} still in the
+              pile — held for tomorrow by the daily new-card limit (
+              {anki.newCardsPerDay ?? 20}/day).
+            </p>
+          ) : null}
           <div className="mt-8 flex justify-center gap-2">
             <PillButton variant="ghost" onClick={() => setRoute({ name: "today" })}>
               Back to Today
