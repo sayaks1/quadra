@@ -118,29 +118,34 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
     if (audioUrl) {
       // Absolute URL — relative src can fail on some mobile WebViews.
-      const absolute = new URL(audioUrl, window.location.href).href;
-      const el = new Audio(absolute);
+      // Cache-bust helps when a regenerated clip replaced the same key.
+      const absolute = new URL(audioUrl, window.location.href);
+      absolute.searchParams.set("v", current.audioKey ?? current.id);
+      const href = absolute.href;
+      const el = new Audio();
       el.preload = "auto";
+      el.src = href;
       audioElRef.current = el;
 
       let finished = false;
       const fallback = () => {
-        if (finished || audioElRef.current !== el) return;
+        if (finished) return;
         finished = true;
         void speakFallback(spoken, deck?.language);
       };
 
-      const tryPlay = () => {
-        if (finished || audioElRef.current !== el) return;
-        void el
+      const tryPlay = (target: HTMLAudioElement) => {
+        if (finished || audioElRef.current !== target) return;
+        void target
           .play()
           .then(() => {
             finished = true;
           })
           .catch(() => {
             // Recreate once — helps when a cached/aborted element won't restart.
-            const retry = new Audio(absolute);
+            const retry = new Audio();
             retry.preload = "auto";
+            retry.src = href;
             audioElRef.current = retry;
             void retry.play().then(() => {
               finished = true;
@@ -149,17 +154,20 @@ export function StudyView({ deckId }: { deckId?: string }) {
       };
 
       if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        tryPlay();
+        tryPlay(el);
       } else {
-        el.addEventListener("canplay", tryPlay, { once: true });
+        el.addEventListener("canplay", () => tryPlay(el), { once: true });
         el.addEventListener("error", fallback, { once: true });
         el.load();
-        // If canplay already fired (or never will), retry once data is present.
+        // If canplay stalls (common with some Anki .m4a), fall back to TTS voice.
         window.setTimeout(() => {
-          if (!finished && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-            tryPlay();
+          if (finished || audioElRef.current !== el) return;
+          if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            tryPlay(el);
+          } else {
+            fallback();
           }
-        }, 400);
+        }, 1200);
       }
       return;
     }

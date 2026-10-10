@@ -227,7 +227,10 @@ function preferAudioKey(
   if (!b) return a;
   if (a === b) return a;
   const score = (key: string) => {
-    if (key.startsWith("rec")) return 60; // user recording always wins
+    // Prefer browser-friendly MP3 recordings over Anki .m4a (flaky on some devices).
+    if (key.startsWith("rec_mp3_")) return 65;
+    if (key.startsWith("rec") && key.toLowerCase().endsWith(".mp3")) return 62;
+    if (key.startsWith("rec")) return 55; // other recordings (e.g. .m4a)
     // Prefer higher TTS regeneration versions (v3 > v2 > unversioned).
     const ver = key.match(/^tts_(?:ja|ko|zh)_v(\d+)_/);
     if (ver) return 40 + Math.min(Number(ver[1]), 20);
