@@ -28,8 +28,8 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 4c. **Japanese multi-kanji terms get a kanji breakdown.**  
    When the Japanese term has two or more kanji, add `Breakdown:` glossing each kanji (e.g. `機 = opportunity/machine · 会 = meet`). Add a short usage-context line when notes are example-only.
 
-5. **Japanese examples use hiragana readings, never romaji.**  
-   After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
+5. **Japanese examples use hiragana furigana, never romaji.**  
+   After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not transliterate the whole sentence into romaji (`Nihongo ga…`). Do not put English romaji in parentheses. Put the English translation on the following line.
 
 5b. **Chinese cards get pinyin (reading + notes).**  
    Set `reading` to tone-marked pinyin for every Chinese card (spaced syllables). Keep `／` separators when the term is a grouped cluster.  

@@ -25,8 +25,8 @@ These are standing preferences for this repo. Apply on every vocab import withou
 4c. **Japanese multi-kanji terms get a kanji breakdown.**  
    When the Japanese `term` has two or more kanji, add a `Breakdown:` line glossing each kanji’s contribution (e.g. `Breakdown: 機 = opportunity/machine · 会 = meet → opportunity`). Also add a short usage-context line when notes are example-only. Keep hiragana readings in examples (rule 5); do not use romaji.
 
-5. **Japanese examples: hiragana, not romaji.**  
-   In example sentences, put readings for harder kanji in parentheses as **hiragana** (e.g. `彼（かれ）の話（はなし）`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
+5. **Japanese examples: hiragana furigana, never romaji.**  
+   In example sentences, put readings for harder kanji in parentheses as **hiragana** only (e.g. `彼（かれ）の話（はなし）`). Do **not** add a romaji transliteration of the sentence (`Nihongo ga…`, `Ōame de…`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
 
 5b. **Chinese cards get pinyin (reading + notes).**  
    Put tone-marked pinyin in `reading` for every Chinese card (e.g. `zhǔn bèi shèng dàn jié le`). Space syllables; keep list separators like `／` in the reading when the term is a cluster.  
