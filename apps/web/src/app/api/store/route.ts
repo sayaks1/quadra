@@ -113,18 +113,21 @@ function mergePreferCardFields(
   cloud: QuadraStore["cards"],
 ): QuadraStore["cards"] {
   const cloudById = new Map(cloud.map((c) => [c.id, c]));
-  return incoming.map((card) => {
+  const incomingIds = new Set(incoming.map((c) => c.id));
+  const merged = incoming.map((card) => {
     const remote = cloudById.get(card.id);
     if (!remote) return card;
     const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
     const term = preferFilledText(card.term, remote.term);
     const meaning = preferFilledText(card.meaning, remote.meaning);
     const notes = preferNotesText(card.notes, remote.notes);
+    const reading = preferFilledText(card.reading, remote.reading);
     if (
       nextKey === (card.audioKey ?? null) &&
       term === card.term &&
       meaning === card.meaning &&
-      notes === card.notes
+      notes === card.notes &&
+      reading === card.reading
     ) {
       return card;
     }
@@ -133,12 +136,20 @@ function mergePreferCardFields(
       term,
       meaning,
       notes,
+      reading,
       audioKey: nextKey,
       audioSource: nextKey
         ? card.audioSource || remote.audioSource || "tts"
         : card.audioSource,
     };
   });
+  // Preserve cards the client doesn't have yet (imports from another session/device).
+  for (const remote of cloud) {
+    if (!incomingIds.has(remote.id) && !remote.deletedAt) {
+      merged.push(remote);
+    }
+  }
+  return merged;
 }
 
 function preferFilledText(incoming: string, remote: string): string {
