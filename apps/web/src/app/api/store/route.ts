@@ -120,6 +120,7 @@ function mergePreferCardFields(
     const remote = cloudById.get(card.id);
     if (!remote) return card;
     const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
+    const nextImage = preferMediaKey(card.imageKey, remote.imageKey);
     const term = preferTermText(card.term, remote.term);
     const meaning = preferFilledText(card.meaning, remote.meaning);
     const notes = preferNotesText(card.notes, remote.notes);
@@ -128,6 +129,7 @@ function mergePreferCardFields(
     const deletedAt = remote.deletedAt || card.deletedAt || null;
     if (
       nextKey === (card.audioKey ?? null) &&
+      nextImage === (card.imageKey ?? null) &&
       term === card.term &&
       meaning === card.meaning &&
       notes === card.notes &&
@@ -144,6 +146,7 @@ function mergePreferCardFields(
       reading,
       deletedAt,
       audioKey: nextKey,
+      imageKey: nextImage,
       audioSource: nextKey
         ? card.audioSource || remote.audioSource || "tts"
         : card.audioSource,
