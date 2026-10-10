@@ -665,10 +665,23 @@ function PlayIcon() {
   );
 }
 
-/** Strip readings in parentheses so TTS doesn't say the word twice (e.g. ギャグ (ぎゃぐ)). */
+/**
+ * Text for speech / TTS. Prefer kana in parentheses (or `reading`) so the
+ * engine doesn't misread rare kanji — e.g. 憧れる（あこがれる） → あこがれる,
+ * not a wrong guess from 憧れる alone.
+ */
 function speakableTerm(term: string, reading?: string) {
+  const paren = term.match(/[（(]([^）)]+)[）)]/);
+  if (paren) {
+    const inner = paren[1].trim();
+    // Hiragana/katakana reading (allow spaces, ・, 、 for multi-part terms)
+    if (/^[\u3040-\u30ff\uFF66-\uFF9F\s、・／]+$/.test(inner)) {
+      return inner;
+    }
+  }
+  if (reading?.trim()) return reading.trim();
   const stripped = term.replace(/[（(][^）)]+[）)]/g, "").trim();
-  return stripped || reading?.trim() || term.trim();
+  return stripped || term.trim();
 }
 
 async function speakFallback(text: string, language?: string) {

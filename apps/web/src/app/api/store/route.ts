@@ -184,8 +184,9 @@ function preferAudioKey(
   if (a === b) return a;
   const score = (key: string) => {
     if (key.startsWith("rec")) return 60; // user recording always wins
-    if (key.startsWith("tts_ja_v2_") || key.startsWith("tts_ko_v2_") || key.startsWith("tts_zh_v2_"))
-      return 50;
+    // Prefer higher TTS regeneration versions (v3 > v2 > unversioned).
+    const ver = key.match(/^tts_(?:ja|ko|zh)_v(\d+)_/);
+    if (ver) return 40 + Math.min(Number(ver[1]), 20);
     if (key.startsWith("tts_")) return 20;
     return 10;
   };
