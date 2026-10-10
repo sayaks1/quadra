@@ -7,8 +7,9 @@ These are standing preferences for this repo. Apply on every vocab import withou
 1. **Translate missing sides — add anyway.**  
    If a note has only English, or only Japanese/Korean/Chinese (or only a reading), the user does not know the translation. **Translate the missing side and add the card.** Never skip a headword because one side is blank. Target language → `term`, English → `meaning`. Infer language from the deck they named or the note’s script.
 
-2. **Skip duplicates.**  
-   Match on the target-language term (ignore parenthetical readings and spacing). If it already exists, skip. Related but different words (e.g. 都会 vs 都会と田舎の間) are not duplicates.
+2. **Skip duplicates; group similar words.**  
+   Match on the target-language term (ignore parenthetical readings and spacing). If it already exists, skip.  
+   When notes contain many near-synonyms, shade/variation sets, or tightly related phrases (e.g. light/dark colors, airline names, 画画 / 画油画 / 画得很好), **merge them into one flashcard** instead of creating a pile of tiny overlapping cards. Put the main form in `term`, list the clustered forms in `notes` (with a short example). Truly distinct senses stay separate (e.g. 都会 vs 都会と田舎の間).
 
 3. **Audio on every new card.**  
    Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never finish an import with silent new cards.  

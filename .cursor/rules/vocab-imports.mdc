@@ -10,8 +10,9 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 1. **Translate missing sides — never skip for incomplete notes.**  
    If the user wrote only English, or only Japanese/Korean/Chinese (or only a reading), they do not know the other side. Translate it and **add the card anyway**. Target language → `term`, English → `meaning`.
 
-2. **Skip duplicates.**  
-   Match on the target-language term (ignore readings in parentheses and spacing). Related but different words are not duplicates.
+2. **Skip duplicates; group similar words.**  
+   Match on the target-language term (ignore readings in parentheses and spacing). If it already exists, skip.  
+   When notes have many similar words, shades, or related phrases, **group them on one card** (main form in `term`, cluster + example in `notes`) instead of many near-duplicate cards. Keep truly different senses separate.
 
 3. **Every new card must have audio.**  
    Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.  
