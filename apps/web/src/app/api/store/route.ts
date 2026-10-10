@@ -88,7 +88,9 @@ export async function PUT(req: Request) {
 
   if (isCloudConfigured()) {
     try {
-      await pushCloudStore(toWrite);
+      // Only hard-prune on explicit force snapshots; normal syncs must not
+      // delete cards the client simply hasn't pulled yet.
+      await pushCloudStore(toWrite, { pruneMissing: force });
       await writeLocalStore(toWrite);
       return NextResponse.json({ ok: true, backend: "supabase" as const });
     } catch (e) {

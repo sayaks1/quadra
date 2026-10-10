@@ -118,9 +118,13 @@ export async function pullCloudStore(): Promise<QuadraStore | null> {
   };
 }
 
-export async function pushCloudStore(store: QuadraStore): Promise<void> {
+export async function pushCloudStore(
+  store: QuadraStore,
+  opts?: { pruneMissing?: boolean },
+): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase is not configured");
+  const pruneMissing = opts?.pruneMissing === true;
 
   const deckRows = store.decks.map((d) => ({
     id: d.id,
@@ -170,21 +174,25 @@ export async function pushCloudStore(store: QuadraStore): Promise<void> {
     if (error) throw new Error(error.message);
   }
 
-  await deleteMissingIds(
-    supabase,
-    "decks",
-    store.decks.map((d) => d.id),
-  );
-  await deleteMissingIds(
-    supabase,
-    "cards",
-    store.cards.map((c) => c.id),
-  );
-  await deleteMissingIds(
-    supabase,
-    "reviews",
-    store.reviews.map((r) => r.id),
-  );
+  // Soft-delete via deletedAt is the normal path. Hard-pruning rows missing
+  // from a client snapshot deletes cards added on another device/session.
+  if (pruneMissing) {
+    await deleteMissingIds(
+      supabase,
+      "decks",
+      store.decks.map((d) => d.id),
+    );
+    await deleteMissingIds(
+      supabase,
+      "cards",
+      store.cards.map((c) => c.id),
+    );
+    await deleteMissingIds(
+      supabase,
+      "reviews",
+      store.reviews.map((r) => r.id),
+    );
+  }
 
   const { error: settingsError } = await supabase.from("settings").upsert({
     id: "default",
