@@ -9,7 +9,8 @@ These are standing preferences for this repo. Apply on every vocab import withou
 
 2. **Skip duplicates; group similar words.**  
    Match on the target-language term (ignore parenthetical readings and spacing). If it already exists, skip.  
-   When notes contain many near-synonyms, shade/variation sets, or tightly related phrases (e.g. light/dark colors, airline names, 画画 / 画油画 / 画得很好), **merge them into one flashcard** instead of creating a pile of tiny overlapping cards. Put the main form in `term`, list the clustered forms in `notes` (with a short example). Truly distinct senses stay separate (e.g. 都会 vs 都会と田舎の間).
+   When notes contain many near-synonyms, shade/variation sets, or tightly related phrases (e.g. airline names, 画画 / 画油画 / 画得很好), **merge them into one flashcard** instead of creating a pile of tiny overlapping cards. Put the main form in `term`, list the clustered forms in `notes` (with a short example). Truly distinct senses stay separate (e.g. 都会 vs 都会と田舎の間).  
+   **Exception — Chinese colors:** each color word (粉色、紫色、灰色、红色, etc.) and shade words 浅 / 深 get their **own** flashcard; do not cluster them.
 
 3. **Audio on every new card.**  
    Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never finish an import with silent new cards.  

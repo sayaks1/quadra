@@ -12,7 +12,8 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 
 2. **Skip duplicates; group similar words.**  
    Match on the target-language term (ignore readings in parentheses and spacing). If it already exists, skip.  
-   When notes have many similar words, shades, or related phrases, **group them on one card** (main form in `term`, cluster + example in `notes`) instead of many near-duplicate cards. Keep truly different senses separate.
+   When notes have many similar words, shades, or related phrases, **group them on one card** (main form in `term`, cluster + example in `notes`) instead of many near-duplicate cards. Keep truly different senses separate.  
+   **Exception — Chinese colors:** each color (粉色、紫色、灰色, etc.) and 浅 / 深 get their own flashcard; do not cluster them.
 
 3. **Every new card must have audio.**  
    Generate TTS for `term`, upload via `/api/media/upload`, set `audioKey` + `audioSource: "tts"`. Never leave newly added cards silent.  
