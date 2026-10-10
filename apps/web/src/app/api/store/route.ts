@@ -119,7 +119,7 @@ function mergePreferCardFields(
     const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
     const term = preferFilledText(card.term, remote.term);
     const meaning = preferFilledText(card.meaning, remote.meaning);
-    const notes = preferFilledText(card.notes, remote.notes);
+    const notes = preferNotesText(card.notes, remote.notes);
     if (
       nextKey === (card.audioKey ?? null) &&
       term === card.term &&
@@ -145,6 +145,31 @@ function preferFilledText(incoming: string, remote: string): string {
   const a = (incoming ?? "").trim();
   const b = (remote ?? "").trim();
   if (!a && b) return remote;
+  return incoming;
+}
+
+/** True when notes already have a dedicated pinyin line under the Chinese example. */
+function hasPinyinLine(notes: string): boolean {
+  const lines = notes
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return false;
+  const py = lines[1] ?? "";
+  if (/[\u4e00-\u9fff]/.test(py)) return false;
+  return /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/.test(py);
+}
+
+function preferNotesText(incoming: string, remote: string): string {
+  const a = (incoming ?? "").trim();
+  const b = (remote ?? "").trim();
+  if (!a && b) return remote;
+  if (!b) return incoming;
+  // Prefer structured example + pinyin line over one-line notes that only
+  // tuck pinyin into parentheses (stale tabs often look "filled" otherwise).
+  const aLine = hasPinyinLine(a);
+  const bLine = hasPinyinLine(b);
+  if (bLine && !aLine) return remote;
   return incoming;
 }
 

@@ -610,6 +610,11 @@ export function StudyView({ deckId }: { deckId?: string }) {
   );
 }
 
+function isPinyinLine(line: string) {
+  if (/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(line)) return false;
+  return /[a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/i.test(line);
+}
+
 function ExampleNotes({ notes }: { notes: string }) {
   const lines = notes
     .split(/\n+/)
@@ -617,10 +622,16 @@ function ExampleNotes({ notes }: { notes: string }) {
     .filter(Boolean);
   if (!lines.length) return null;
 
-  // Format: example, translation, optional Breakdown:, then usage context.
+  // Format: example, optional pinyin, English, optional Breakdown:, then usage context.
   const example = lines[0] ?? "";
-  const translation = lines[1] ?? null;
-  const rest = lines.slice(2);
+  let idx = 1;
+  let pinyin: string | null = null;
+  if (lines[1] && isPinyinLine(lines[1])) {
+    pinyin = lines[1];
+    idx = 2;
+  }
+  const translation = lines[idx] ?? null;
+  const rest = lines.slice(idx + (translation ? 1 : 0));
   const breakdown = rest.find((l) => /^breakdown:\s*/i.test(l)) ?? null;
   const context = rest
     .filter((l) => !/^breakdown:\s*/i.test(l))
@@ -636,6 +647,7 @@ function ExampleNotes({ notes }: { notes: string }) {
   return (
     <div className="mt-6 space-y-1.5 break-words text-[14.5px] leading-relaxed [overflow-wrap:anywhere]">
       <p className="text-ink">{exampleLabel}</p>
+      {pinyin ? <p className="text-stone italic">{pinyin}</p> : null}
       {translation ? <p className="text-stone">{translation}</p> : null}
       {breakdown ? (
         <p className="text-stone/90 text-[13.5px]">{breakdown}</p>

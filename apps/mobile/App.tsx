@@ -335,6 +335,11 @@ export default function App() {
   );
 }
 
+function isPinyinLine(line: string) {
+  if (/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(line)) return false;
+  return /[a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/i.test(line);
+}
+
 function NotesBlock({ notes }: { notes: string }) {
   const lines = notes
     .split(/\n+/)
@@ -342,8 +347,14 @@ function NotesBlock({ notes }: { notes: string }) {
     .filter(Boolean);
   if (!lines.length) return null;
   const example = lines[0] ?? "";
-  const translation = lines[1] ?? null;
-  const rest = lines.slice(2);
+  let idx = 1;
+  let pinyin: string | null = null;
+  if (lines[1] && isPinyinLine(lines[1])) {
+    pinyin = lines[1];
+    idx = 2;
+  }
+  const translation = lines[idx] ?? null;
+  const rest = lines.slice(idx + (translation ? 1 : 0));
   const breakdown = rest.find((l) => /^breakdown:\s*/i.test(l)) ?? null;
   const context =
     rest
@@ -359,6 +370,9 @@ function NotesBlock({ notes }: { notes: string }) {
   return (
     <View style={{ marginTop: 16, gap: 4 }}>
       <Text style={styles.cardBack}>{exampleLabel}</Text>
+      {pinyin ? (
+        <Text style={[styles.cardNoteMeta, { fontStyle: "italic" }]}>{pinyin}</Text>
+      ) : null}
       {translation ? <Text style={styles.cardNoteMeta}>{translation}</Text> : null}
       {breakdown ? <Text style={styles.cardNoteContext}>{breakdown}</Text> : null}
       {context ? <Text style={styles.cardNoteContext}>{context}</Text> : null}

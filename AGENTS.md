@@ -24,8 +24,9 @@ These are standing preferences for this repo. Apply on every vocab import withou
 5. **Japanese examples: hiragana, not romaji.**  
    In example sentences, put readings for harder kanji in parentheses as **hiragana** (e.g. `彼（かれ）の話（はなし）`). Never use English romaji in those parentheses (`kare`, `hanashi`). Keep the English translation on its own line after the Japanese.
 
-5b. **Chinese cards get pinyin.**  
-   Put tone-marked pinyin in `reading` for every Chinese card (e.g. `zhǔn bèi shèng dàn jié le`). Space syllables; keep list separators like `／` in the reading when the term is a cluster.
+5b. **Chinese cards get pinyin (reading + notes).**  
+   Put tone-marked pinyin in `reading` for every Chinese card (e.g. `zhǔn bèi shèng dàn jié le`). Space syllables; keep list separators like `／` in the reading when the term is a cluster.  
+   In `notes`, because the learner may not read characters yet: put a full pinyin line under every Chinese example sentence, and add `(pinyin)` after Chinese words/phrases in Breakdown and usage-context lines.
 
 6. Prefer the live cloud store (`https://quadra-tau.vercel.app/api/store` when that is the deployed app) so cards show up in study immediately.
 7. Card orientation: English (`meaning`) front; target language (`term`) back — including Korean Hangul as the target script.
