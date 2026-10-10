@@ -13,6 +13,7 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 2. **Skip duplicates; group similar words.**  
    Match on the target-language term (ignore readings in parentheses and spacing). If it already exists, skip.  
    When notes have many similar words, shades, or related phrases, **group them on one card** (main form in `term`, cluster + example in `notes`) instead of many near-duplicate cards. Keep truly different senses separate.  
+   Do **not** add a separate card for a simple derivative of a word already in the deck (e.g. skip 伝統的な if 伝統 exists — mention the adjective on the noun card). Same for obvious noun↔な-adjective pairs.  
    **Exception — Chinese colors:** each color (粉色、紫色、灰色, etc.) and 浅 / 深 get their own flashcard; do not cluster them.
 
 3. **Every new card must have audio.**  
@@ -20,7 +21,7 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
    For short Japanese katakana loanwords, use hiragana TTS text and about `-20%` rate so it does not sound rushed.
 
 4. **Every card gets a simple example + usage context.**  
-   Put in `notes`: (1) one short target-language example sentence, (2) English translation on the next line, (3) brief usage context when the gloss alone is ambiguous (register, near-synonyms, “not X”, collocations). Never leave provenance-only text like `From sticky notes.` as the example — replace it, keeping any useful disambiguation.
+   Put in `notes`: (1) one short target-language example sentence, (2) English translation on the next line, (3) brief usage context when the gloss alone is ambiguous (register, near-synonyms, “not X”, collocations). Never leave provenance in notes (`From class notes`, dates like `9/30`, `From sticky notes.`, “translated per import rules”) — replace with a real example + usage context.
 
 4b. **Phrases get a word breakdown.**  
    For multi-word expressions / idioms / phrases, add a `Breakdown:` line after the translation glossing each content word (and important particles), e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark`. Single dictionary words do not need this.

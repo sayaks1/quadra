@@ -120,16 +120,19 @@ function mergePreferCardFields(
     const remote = cloudById.get(card.id);
     if (!remote) return card;
     const nextKey = preferAudioKey(card.audioKey, remote.audioKey);
-    const term = preferFilledText(card.term, remote.term);
+    const term = preferTermText(card.term, remote.term);
     const meaning = preferFilledText(card.meaning, remote.meaning);
     const notes = preferNotesText(card.notes, remote.notes);
     const reading = preferFilledText(card.reading, remote.reading);
+    // Soft-deletes from another session must stick (stale tabs often omit deletedAt).
+    const deletedAt = remote.deletedAt || card.deletedAt || null;
     if (
       nextKey === (card.audioKey ?? null) &&
       term === card.term &&
       meaning === card.meaning &&
       notes === card.notes &&
-      reading === card.reading
+      reading === card.reading &&
+      deletedAt === (card.deletedAt ?? null)
     ) {
       return card;
     }
@@ -139,15 +142,17 @@ function mergePreferCardFields(
       meaning,
       notes,
       reading,
+      deletedAt,
       audioKey: nextKey,
       audioSource: nextKey
         ? card.audioSource || remote.audioSource || "tts"
         : card.audioSource,
     };
   });
-  // Preserve cards the client doesn't have yet (imports from another session/device).
+  // Preserve cards the client doesn't have yet (imports from another session/device),
+  // including soft-deleted ones so delete markers are not lost.
   for (const remote of cloud) {
-    if (!incomingIds.has(remote.id) && !remote.deletedAt) {
+    if (!incomingIds.has(remote.id)) {
       merged.push(remote);
     }
   }
@@ -177,6 +182,10 @@ function hasBreakdownLine(notes: string): boolean {
   return /^breakdown\s*:/im.test(notes);
 }
 
+function hasProvenanceJunk(notes: string): boolean {
+  return /class notes|from sticky|per import rules/i.test(notes);
+}
+
 function preferNotesText(incoming: string, remote: string): string {
   const a = (incoming ?? "").trim();
   const b = (remote ?? "").trim();
@@ -191,8 +200,10 @@ function preferNotesText(incoming: string, remote: string): string {
   const aBd = hasBreakdownLine(a);
   const bBd = hasBreakdownLine(b);
   if (bBd && !aBd) return remote;
-  // If both or neither have breakdown/pinyin structure, keep the richer notes.
-  if (b.length > a.length * 1.25 && (bBd || bLine)) return remote;
+  // Prefer cleaned notes over "From class notes 9/30" provenance stubs.
+  if (hasProvenanceJunk(a) && !hasProvenanceJunk(b)) return remote;
+  // Prefer cleaner shorter headword-style terms already reflected in richer notes.
+  if (b.length > a.length * 1.25 && (bBd || bLine || !hasProvenanceJunk(b))) return remote;
   return incoming;
 }
 

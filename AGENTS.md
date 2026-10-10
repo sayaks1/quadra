@@ -10,6 +10,7 @@ These are standing preferences for this repo. Apply on every vocab import withou
 2. **Skip duplicates; group similar words.**  
    Match on the target-language term (ignore parenthetical readings and spacing). If it already exists, skip.  
    When notes contain many near-synonyms, shade/variation sets, or tightly related phrases (e.g. airline names, 画画 / 画油画 / 画得很好), **merge them into one flashcard** instead of creating a pile of tiny overlapping cards. Put the main form in `term`, list the clustered forms in `notes` (with a short example). Truly distinct senses stay separate (e.g. 都会 vs 都会と田舎の間).  
+   Do **not** add a separate card for a simple derivative of a word already in the deck (e.g. skip 伝統的な / “traditional” if 伝統 / “tradition” exists — mention 伝統的な on the 伝統 card instead). Same for obvious noun↔な-adjective pairs and other transparent inflections.  
    **Exception — Chinese colors:** each color word (粉色、紫色、灰色、红色, etc.) and shade words 浅 / 深 get their **own** flashcard; do not cluster them.
 
 3. **Audio on every new card.**  
@@ -17,7 +18,8 @@ These are standing preferences for this repo. Apply on every vocab import withou
    For short Japanese katakana loanwords, prefer hiragana input and a slightly slower rate (about `-20%`) so playback does not sound rushed.
 
 4. **Every card gets a simple example + usage context.**  
-   In `notes`, always include: (1) one short example sentence in the target language using the word naturally, (2) its English translation on the next line, (3) a brief note on how the word is generally used when that isn’t obvious from the gloss (register, near-synonyms, “not X”, common collocations). Do not leave provenance-only notes like `From sticky notes.` as the example. Keep useful disambiguation from the source when it helps.
+   In `notes`, always include: (1) one short example sentence in the target language using the word naturally, (2) its English translation on the next line, (3) a brief note on how the word is generally used when that isn’t obvious from the gloss (register, near-synonyms, “not X”, common collocations).  
+   Never leave provenance in notes: no `From class notes`, dates (`9/30`), `From sticky notes.`, “quote/unquote,” or “translated per import rules.” Replace those with a real example + usage context; keep only useful linguistic disambiguation from the source.
 
 4b. **Phrases get a word breakdown.**  
    If the term is a phrase, idiom, or multi-word expression (not a single dictionary word), add a `Breakdown:` line after the translation that glosses each content word/morpheme (e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark → “ears are dark” = hard of hearing / didn’t catch it`). Keep particles brief when they matter for the meaning.
