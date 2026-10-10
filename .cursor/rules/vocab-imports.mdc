@@ -27,4 +27,7 @@ When adding vocabulary from notes, photos, PDFs, or similar for this repo:
 5. **Japanese examples use hiragana readings, never romaji.**  
    After harder kanji in example sentences, add `（ひらがな）` — e.g. `面白（おもしろ）い`. Do not put English romaji in parentheses. Put the English translation on the following line.
 
+5b. **Chinese cards get pinyin.**  
+   Set `reading` to tone-marked pinyin for every Chinese card (spaced syllables). Keep `／` separators when the term is a grouped cluster.
+
 6. Prefer the live cloud store so cards appear in study immediately. English on the front; target language on the back.
