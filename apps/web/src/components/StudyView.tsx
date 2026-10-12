@@ -104,28 +104,56 @@ export function StudyView({ deckId }: { deckId?: string }) {
     const el = audioElRef.current;
     if (el) {
       el.pause();
-      el.currentTime = 0;
+      try {
+        el.currentTime = 0;
+      } catch {
+        // Ignore if metadata isn't ready yet.
+      }
     }
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
   }, []);
 
-  const playAudio = useCallback(() => {
-    if (!current) return;
-    stopAudio();
-    const spoken = speakableTerm(current.term, current.reading);
-
-    if (audioUrl) {
+  const audioHrefFor = useCallback(
+    (url: string | null | undefined, card: Card | undefined) => {
+      if (!url || !card) return null;
       // Absolute URL — relative src can fail on some mobile WebViews.
       // Cache-bust helps when a regenerated clip replaced the same key.
-      const absolute = new URL(audioUrl, window.location.href);
-      absolute.searchParams.set("v", current.audioKey ?? current.id);
-      const href = absolute.href;
-      const el = new Audio();
-      el.preload = "auto";
-      el.src = href;
-      audioElRef.current = el;
+      const absolute = new URL(url, window.location.href);
+      absolute.searchParams.set("v", card.audioKey ?? card.id);
+      return absolute.href;
+    },
+    [],
+  );
+
+  const playAudio = useCallback(() => {
+    if (!current) return;
+    const spoken = speakableTerm(current.term, current.reading, deck?.language);
+    const href = audioHrefFor(audioUrl, current);
+
+    if (href) {
+      // Reuse the prefetched element when possible so flip plays in the same
+      // user-gesture turn (creating a new Audio forces another network wait and
+      // often loses autoplay — especially on slower Anki Chinese clips).
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      let el = audioElRef.current;
+      if (!el || el.src !== href) {
+        stopAudio();
+        el = new Audio();
+        el.preload = "auto";
+        el.src = href;
+        audioElRef.current = el;
+      } else {
+        el.pause();
+        try {
+          el.currentTime = 0;
+        } catch {
+          // Ignore if metadata isn't ready yet.
+        }
+      }
 
       let finished = false;
       const fallback = () => {
@@ -134,7 +162,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
         void speakFallback(spoken, deck?.language);
       };
 
-      const tryPlay = (target: HTMLAudioElement) => {
+      const tryPlay = (target: HTMLAudioElement, allowRetry: boolean) => {
         if (finished || audioElRef.current !== target) return;
         void target
           .play()
@@ -142,28 +170,34 @@ export function StudyView({ deckId }: { deckId?: string }) {
             finished = true;
           })
           .catch(() => {
+            if (!allowRetry) return;
             // Recreate once — helps when a cached/aborted element won't restart.
             const retry = new Audio();
             retry.preload = "auto";
             retry.src = href;
             audioElRef.current = retry;
-            void retry.play().then(() => {
-              finished = true;
-            }).catch(fallback);
+            void retry
+              .play()
+              .then(() => {
+                finished = true;
+              })
+              .catch(fallback);
           });
       };
 
       if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        tryPlay(el);
+        tryPlay(el, true);
       } else {
-        el.addEventListener("canplay", () => tryPlay(el), { once: true });
+        // Still invoke play() in the flip gesture turn — browsers often allow
+        // it once prefetch has started, even before canplay fires.
+        tryPlay(el, false);
+        el.addEventListener("canplay", () => tryPlay(el, true), { once: true });
         el.addEventListener("error", fallback, { once: true });
-        el.load();
         // If canplay stalls (common with some Anki .m4a), fall back to TTS voice.
         window.setTimeout(() => {
           if (finished || audioElRef.current !== el) return;
           if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-            tryPlay(el);
+            tryPlay(el, true);
           } else {
             fallback();
           }
@@ -172,8 +206,9 @@ export function StudyView({ deckId }: { deckId?: string }) {
       return;
     }
 
+    stopAudio();
     void speakFallback(spoken, deck?.language);
-  }, [audioUrl, current, deck?.language, stopAudio]);
+  }, [audioHrefFor, audioUrl, current, deck?.language, stopAudio]);
 
   const reveal = useCallback(() => {
     if (revealedRef.current) return;
@@ -342,21 +377,24 @@ export function StudyView({ deckId }: { deckId?: string }) {
     });
   }, [cards, deckId, focusHotkeys]);
 
-  // Prefetch the current card's audio so flip playback starts immediately.
+  // Prefetch the current card's audio (same cache-busted URL as playAudio)
+  // so flip can reuse a buffered element instead of waiting on the network.
   useEffect(() => {
     stopAudio();
-    if (!audioUrl) {
+    const href = audioHrefFor(audioUrl, current);
+    if (!href) {
       audioElRef.current = null;
       return;
     }
-    const el = new Audio(audioUrl);
+    const el = new Audio();
     el.preload = "auto";
+    el.src = href;
     audioElRef.current = el;
     return () => {
       el.pause();
       if (audioElRef.current === el) audioElRef.current = null;
     };
-  }, [audioUrl, stopAudio]);
+  }, [audioHrefFor, audioUrl, current, stopAudio]);
 
   // Window capture listener as backup; primary path is the IME-disabled input
   useEffect(() => {
@@ -683,11 +721,28 @@ function PlayIcon() {
 }
 
 /**
- * Text for speech / TTS. Prefer kana in parentheses (or `reading`) so the
- * engine doesn't misread rare kanji — e.g. 憧れる（あこがれる） → あこがれる,
- * not a wrong guess from 憧れる alone.
+ * Text for speech / TTS.
+ * - Japanese: prefer kana in parentheses (or `reading`) so the engine doesn't
+ *   misread rare kanji — e.g. 憧れる（あこがれる） → あこがれる.
+ * - Chinese: speak Han characters, never Latin pinyin (zh voices often stay
+ *   silent on pinyin-only strings).
  */
-function speakableTerm(term: string, reading?: string) {
+function speakableTerm(term: string, reading?: string, language?: string) {
+  if (language === "zh") {
+    // Drop pinyin parentheses / Latin glosses; keep Han + CJK punctuation.
+    const cleaned = term
+      .replace(/[（(][^）)]*[A-Za-zÀ-ÿĀ-ɏā-ɏ][^）)]*[）)]/g, "")
+      .replace(/[A-Za-zÀ-ÿĀ-ɏā-ɏ0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const han = (
+      cleaned.match(
+        /[\u3400-\u9fff\uF900-\uFAFF\u3000-\u303f\uff00-\uffef／、，。？！：；「」『』（）·]+/g,
+      ) || []
+    ).join("");
+    if (han) return han;
+  }
+
   const paren = term.match(/[（(]([^）)]+)[）)]/);
   if (paren) {
     const inner = paren[1].trim();
@@ -712,7 +767,9 @@ async function speakFallback(text: string, language?: string) {
   else if (language === "zh") utter.lang = "zh-CN";
   // Prefer a matching system voice when available (helps Safari/iOS).
   const voices = window.speechSynthesis.getVoices();
-  const match = voices.find((v) => v.lang.toLowerCase().startsWith(utter.lang.slice(0, 2)));
+  const match = voices.find((v) =>
+    v.lang.toLowerCase().startsWith(utter.lang.slice(0, 2)),
+  );
   if (match) utter.voice = match;
   window.speechSynthesis.speak(utter);
 }
