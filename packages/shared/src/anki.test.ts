@@ -137,8 +137,35 @@ describe("Anki study-day boundary", () => {
       due: now.toISOString(),
     });
     assert.equal(previewIntervalLabel(c, "good", now, config), "3d"); // round(1 * 2.5)
-    assert.match(previewIntervalLabel(c, "easy", now, config), /^\d+d$/);
+    assert.equal(previewIntervalLabel(c, "easy", now, config), "4d"); // Easy > Good
     assert.equal(previewIntervalLabel(c, "again", now, config), "10m");
+  });
+
+  it("keeps Good and Easy review labels distinct when bonus rounds away", () => {
+    // 1d × 2.5 = 2.5 → 3d; 1d × 2.5 × 1.3 = 3.25 → 3d without the Easy floor.
+    const now = new Date("2026-10-05T12:00:00.000Z");
+    const c = card({
+      phase: "review",
+      reps: 3,
+      intervalDays: 1,
+      ease: 2.5,
+      due: now.toISOString(),
+    });
+    assert.equal(previewIntervalLabel(c, "hard", now, DEFAULT_ANKI_CONFIG), "1d");
+    assert.equal(previewIntervalLabel(c, "good", now, DEFAULT_ANKI_CONFIG), "3d");
+    assert.equal(previewIntervalLabel(c, "easy", now, DEFAULT_ANKI_CONFIG), "4d");
+  });
+
+  it("keeps learning Easy longer than graduating Good", () => {
+    const now = new Date("2026-10-05T12:00:00.000Z");
+    const config = {
+      ...DEFAULT_ANKI_CONFIG,
+      graduatingInterval: 2,
+      easyInterval: 2,
+    };
+    const c = card({ phase: "learning", learningStep: 1, reps: 1, lapses: 0 });
+    assert.equal(previewIntervalLabel(c, "good", now, config), "2d");
+    assert.equal(previewIntervalLabel(c, "easy", now, config), "3d");
   });
 
   it("formats long review intervals as decimal months", () => {

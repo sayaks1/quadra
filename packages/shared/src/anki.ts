@@ -155,20 +155,24 @@ function applyLearningRating(
     };
   }
 
-  if (rating === "easy") {
-    return graduate(state, now, easyGraduateDays(state, config), 0.15, config);
-  }
-
   // Good
   const nextStep = state.learningStep + 1;
+  const graduatingDays =
+    phase === "relearning"
+      ? Math.max(config.minimumInterval, config.graduatingInterval)
+      : config.graduatingInterval;
+
+  if (rating === "easy") {
+    // Easy must stay longer than a graduating Good (never show the same Nd twice).
+    let easyDays = easyGraduateDays(state, config);
+    if (easyDays <= graduatingDays) easyDays = graduatingDays + 1;
+    return graduate(state, now, easyDays, 0.15, config);
+  }
+
   if (nextStep >= steps.length) {
     // Relearning Good after steps → back to review with at least graduating interval
     // (Anki uses new interval % of previous; we use graduatingInterval as floor)
-    const reviewIvl =
-      phase === "relearning"
-        ? Math.max(config.minimumInterval, config.graduatingInterval)
-        : config.graduatingInterval;
-    return graduate(state, now, reviewIvl, 0, config);
+    return graduate(state, now, graduatingDays, 0, config);
   }
 
   return enterLearning(state, now, config, phase, nextStep);
@@ -198,19 +202,27 @@ function applyReviewRating(
   let nextIvl = state.intervalDays;
   let ease = state.ease;
 
+  // Compute Good's interval first so Easy can stay strictly longer (Anki-style).
+  // Small ivl + rounding otherwise can make Good and Easy both land on e.g. 3d
+  // (1 × 2.5 → 3, 1 × 2.5 × 1.3 → 3).
+  let goodIvl = Math.max(
+    config.minimumInterval,
+    Math.round(state.intervalDays * ease * config.intervalModifier),
+  );
+  if (goodIvl <= state.intervalDays) goodIvl = state.intervalDays + 1;
+
   if (rating === "hard") {
     nextIvl = Math.max(
       config.minimumInterval,
       Math.round(state.intervalDays * config.hardInterval * config.intervalModifier),
     );
+    // Hard should not exceed Good; keep it at least one day shorter when possible.
+    if (nextIvl >= goodIvl && goodIvl > config.minimumInterval) {
+      nextIvl = goodIvl - 1;
+    }
     ease = clampEase(ease - 0.15);
   } else if (rating === "good") {
-    nextIvl = Math.max(
-      config.minimumInterval,
-      Math.round(state.intervalDays * ease * config.intervalModifier),
-    );
-    // Ensure progress of at least +1 day over previous when possible
-    if (nextIvl <= state.intervalDays) nextIvl = state.intervalDays + 1;
+    nextIvl = goodIvl;
   } else {
     // easy
     nextIvl = Math.max(
@@ -218,6 +230,7 @@ function applyReviewRating(
       Math.round(state.intervalDays * ease * config.easyBonus * config.intervalModifier),
     );
     if (nextIvl <= state.intervalDays) nextIvl = state.intervalDays + 1;
+    if (nextIvl <= goodIvl) nextIvl = goodIvl + 1;
     ease = clampEase(ease + 0.15);
   }
 
