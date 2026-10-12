@@ -220,6 +220,17 @@ function preferNotesText(incoming: string, remote: string): string {
   return incoming;
 }
 
+function preferMediaKey(
+  incoming: string | null | undefined,
+  remote: string | null | undefined,
+): string | null {
+  const a = incoming?.trim() || null;
+  const b = remote?.trim() || null;
+  if (!a) return b;
+  if (!b) return a;
+  return a;
+}
+
 function preferAudioKey(
   incoming: string | null | undefined,
   remote: string | null | undefined,
