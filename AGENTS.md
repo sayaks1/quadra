@@ -19,7 +19,8 @@ These are standing preferences for this repo. Apply on every vocab import withou
 
 4. **Every card gets a simple example + usage context.**  
    In `notes`, always include: (1) one short example sentence in the target language using the word naturally, (2) its English translation on the next line, (3) a brief note on how the word is generally used when that isn’t obvious from the gloss (register, near-synonyms, “not X”, common collocations).  
-   Never leave provenance in notes: no `From class notes`, dates (`9/30`), `From sticky notes.`, “quote/unquote,” or “translated per import rules.” Replace those with a real example + usage context; keep only useful linguistic disambiguation from the source.
+   Never leave provenance in notes: no `From class notes`, dates (`9/30`), `From sticky notes.`, “quote/unquote,” or “translated per import rules.” Replace those with a real example + usage context; keep only useful linguistic disambiguation from the source.  
+   Never use meta placeholders that name the word instead of using it — e.g. `これは〜の例です` / “This is an example of X” / “Kanji compound for X.” Write a real sentence a learner would hear or say.
 
 4b. **Phrases get a word breakdown.**  
    If the term is a phrase, idiom, or multi-word expression (not a single dictionary word), add a `Breakdown:` line after the translation that glosses each content word/morpheme (e.g. `Breakdown: 귀가 = ears · 어둡다 = to be dark → “ears are dark” = hard of hearing / didn’t catch it`). Keep particles brief when they matter for the meaning.
