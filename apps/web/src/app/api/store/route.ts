@@ -138,6 +138,17 @@ function mergePreferCardFields(
     ) {
       return card;
     }
+    // Keep audioSource aligned with the winning key (stale tabs often still
+    // say "anki" after a TTS regenerate).
+    const audioSource = !nextKey
+      ? card.audioSource
+      : nextKey.startsWith("tts_")
+        ? "tts"
+        : nextKey.startsWith("rec")
+          ? card.audioSource === "user" || remote.audioSource === "user"
+            ? "user"
+            : "anki"
+          : card.audioSource || remote.audioSource || "tts";
     return {
       ...card,
       term,
@@ -147,9 +158,7 @@ function mergePreferCardFields(
       deletedAt,
       audioKey: nextKey,
       imageKey: nextImage,
-      audioSource: nextKey
-        ? card.audioSource || remote.audioSource || "tts"
-        : card.audioSource,
+      audioSource,
     };
   });
   // Preserve cards the client doesn't have yet (imports from another session/device),
