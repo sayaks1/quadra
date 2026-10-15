@@ -345,16 +345,20 @@ export function StudyView({ deckId }: { deckId?: string }) {
   useEffect(() => {
     setQueue((q) => {
       if (q.length === 0) return q;
+      const headId = q[0]?.id;
       let changed = false;
+      let headRemoved = false;
       const next: Card[] = [];
       for (const item of q) {
         const fresh = cards.find((c) => c.id === item.id && !c.deletedAt);
         if (!fresh) {
           changed = true;
+          if (item.id === headId) headRemoved = true;
           continue;
         }
         if (deckId && fresh.deckId !== deckId) {
           changed = true;
+          if (item.id === headId) headRemoved = true;
           continue;
         }
         if (fresh.updatedAt !== item.updatedAt) {
@@ -363,6 +367,13 @@ export function StudyView({ deckId }: { deckId?: string }) {
         } else {
           next.push(item);
         }
+      }
+      // Deleting/skipping the current card must show the next card's front,
+      // not leave reveal=true from the card you just removed.
+      if (headRemoved) {
+        revealedRef.current = false;
+        setRevealed(false);
+        stopAudio();
       }
       return changed ? next : q;
     });
@@ -375,7 +386,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
       }
       return editing;
     });
-  }, [cards, deckId, focusHotkeys]);
+  }, [cards, deckId, focusHotkeys, stopAudio]);
 
   // Prefetch the current card's audio (same cache-busted URL as playAudio)
   // so flip can reuse a buffered element instead of waiting on the network.
