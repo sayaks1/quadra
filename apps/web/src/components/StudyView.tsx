@@ -344,7 +344,12 @@ export function StudyView({ deckId }: { deckId?: string }) {
   // Keep the current study card in sync after in-session edits / deletes.
   useEffect(() => {
     setQueue((q) => {
-      if (q.length === 0) return q;
+      if (q.length === 0) {
+        // Soft-deletes don't change cards.length, so the mount effect won't
+        // rebuild — refill from due when the session queue was emptied by deletes.
+        const more = getDue(deckId);
+        return more.length ? more : q;
+      }
       const headId = q[0]?.id;
       let changed = false;
       let headRemoved = false;
@@ -368,12 +373,14 @@ export function StudyView({ deckId }: { deckId?: string }) {
           next.push(item);
         }
       }
-      // Deleting/skipping the current card must show the next card's front,
-      // not leave reveal=true from the card you just removed.
+      // Deleting the current card frees a new-card slot (if unanswered) and
+      // must not leave reveal=true. Rebuild from due so the next new card
+      // fills that slot instead of ending the session early.
       if (headRemoved) {
         revealedRef.current = false;
         setRevealed(false);
         stopAudio();
+        return getDue(deckId);
       }
       return changed ? next : q;
     });
@@ -386,7 +393,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
       }
       return editing;
     });
-  }, [cards, deckId, focusHotkeys, stopAudio]);
+  }, [cards, deckId, focusHotkeys, getDue, stopAudio]);
 
   // Prefetch the current card's audio (same cache-busted URL as playAudio)
   // so flip can reuse a buffered element instead of waiting on the network.
@@ -430,10 +437,31 @@ export function StudyView({ deckId }: { deckId?: string }) {
     return () => document.removeEventListener("focusin", onFocusIn);
   }, [focusHotkeys]);
 
+  // If the local queue emptied (often after deletes) but today's due set still
+  // has cards — e.g. freed new-card slots — keep studying instead of Done.
+  useEffect(() => {
+    if (queue.length > 0) return;
+    const remainingDue = getDue(deckId);
+    if (!remainingDue.length) return;
+    revealedRef.current = false;
+    setRevealed(false);
+    setQueue(remainingDue);
+    requestAnimationFrame(() => focusHotkeys());
+  }, [queue.length, deckId, getDue, focusHotkeys, cards, reviews]);
+
   if (!current) {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+    const limit = anki.newCardsPerDay ?? 20;
     const newLeftInPile =
       stats && stats.neu > stats.newDue ? stats.neu - stats.newDue : 0;
+    // Still due today (effect will refill) — avoid a false "Done" flash.
+    if (stats && stats.due > 0) {
+      return (
+        <div className="flex h-full items-center justify-center p-8 text-[14.5px] text-stone">
+          Loading next cards…
+        </div>
+      );
+    }
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="w-full max-w-md rounded-[26px] bg-card px-10 py-12 text-center shadow-sm">
@@ -447,8 +475,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
           {newLeftInPile > 0 ? (
             <p className="mt-3 text-[13.5px] text-stone">
               {newLeftInPile} new card{newLeftInPile === 1 ? "" : "s"} still in the
-              pile — held for tomorrow by the daily new-card limit (
-              {anki.newCardsPerDay ?? 20}/day).
+              pile — Anki-style limit is {limit} new card{limit === 1 ? "" : "s"}/day,
+              so the rest wait until tomorrow.
             </p>
           ) : null}
           <div className="mt-8 flex justify-center gap-2">
