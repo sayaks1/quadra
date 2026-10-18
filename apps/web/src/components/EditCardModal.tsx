@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Card } from "@quadra/shared";
 import { activeDecks } from "@quadra/shared";
 import { PillButton } from "@/components/ui";
-import { mediaUrl } from "@/lib/media-url";
+import { mediaUrl, mediaUrls } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
 
 export function EditCardModal({
@@ -135,7 +135,7 @@ export function EditCardModal({
     }
   }
 
-  const imageSrc = mediaUrl(imageKey);
+  const imageSrcs = mediaUrls(imageKey);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-6 backdrop-blur-[2px]">
@@ -178,14 +178,32 @@ export function EditCardModal({
           </Field>
           <Field label="Image">
             <div className="space-y-3">
-              {imageSrc ? (
-                <div className="overflow-hidden rounded-[20px] bg-field">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageSrc}
-                    alt=""
-                    className="max-h-48 w-full object-contain"
-                  />
+              {imageSrcs.length ? (
+                <div
+                  className={
+                    imageSrcs.length > 1
+                      ? "grid grid-cols-2 gap-2"
+                      : undefined
+                  }
+                >
+                  {imageSrcs.map((src, i) => (
+                    <div
+                      key={`${src}-${i}`}
+                      className="overflow-hidden rounded-[20px] bg-field"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt=""
+                        className="max-h-40 w-full object-contain"
+                      />
+                      {imageSrcs.length > 1 ? (
+                        <div className="px-2 py-1 text-center text-[11px] uppercase tracking-wide text-stone">
+                          {i === 0 ? "Whole" : "As sushi"}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">

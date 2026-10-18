@@ -237,6 +237,9 @@ function preferMediaKey(
   const b = remote?.trim() || null;
   if (!a) return b;
   if (!b) return a;
+  // Prefer multi-image packs (fish||sushi) over a single leftover key.
+  const count = (key: string) => key.split("||").filter((k) => k.trim()).length;
+  if (count(a) !== count(b)) return count(a) > count(b) ? a : b;
   return a;
 }
 

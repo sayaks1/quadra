@@ -12,7 +12,7 @@ import { EditCardModal } from "@/components/EditCardModal";
 import { FitText, useStudyDisplayMaxPx } from "@/components/FitText";
 import { RatingBar } from "@/components/RatingBar";
 import { PillButton } from "@/components/ui";
-import { mediaUrl } from "@/lib/media-url";
+import { mediaUrl, mediaUrls } from "@/lib/media-url";
 import { useQuadra } from "@/lib/store";
 
 /** Map a key event to a study rating — j k l ; (and Anki 1–4). */
@@ -91,7 +91,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
   const progress = totalSession === 0 ? 1 : doneCount / totalSession;
 
   const audioUrl = useMemo(() => mediaUrl(current?.audioKey), [current]);
-  const imageUrl = useMemo(() => mediaUrl(current?.imageKey), [current]);
+  const imageUrls = useMemo(() => mediaUrls(current?.imageKey), [current]);
   const displayMaxPx = useStudyDisplayMaxPx(28, 34);
 
   const focusHotkeys = useCallback(() => {
@@ -630,14 +630,32 @@ export function StudyView({ deckId }: { deckId?: string }) {
                   <PlayIcon />
                 </button>
               </div>
-              {imageUrl ? (
-                <div className="mt-6 overflow-hidden rounded-[16px] bg-field">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageUrl}
-                    alt=""
-                    className="mx-auto max-h-56 w-full object-contain"
-                  />
+              {imageUrls.length ? (
+                <div
+                  className={
+                    imageUrls.length > 1
+                      ? "mt-6 grid grid-cols-2 gap-2"
+                      : "mt-6"
+                  }
+                >
+                  {imageUrls.map((src, i) => (
+                    <div
+                      key={`${src}-${i}`}
+                      className="overflow-hidden rounded-[16px] bg-field"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt=""
+                        className="mx-auto max-h-44 w-full object-contain md:max-h-56"
+                      />
+                      {imageUrls.length > 1 ? (
+                        <div className="px-2 py-1.5 text-center text-[11px] font-medium uppercase tracking-wide text-stone">
+                          {i === 0 ? "Whole" : "As sushi"}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               ) : null}
               {current.notes.trim() ? (
