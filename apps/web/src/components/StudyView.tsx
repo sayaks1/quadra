@@ -499,7 +499,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
 
   return (
     <div
-      className="relative flex h-full min-w-0 flex-col overflow-x-hidden p-5 md:p-8"
+      className="relative flex h-full min-w-0 flex-col overflow-hidden"
       onMouseDown={(e) => {
         if (isRealTypingTarget(e.target)) return;
         // Don't steal clicks from buttons — but refocus hotkeys after
@@ -530,7 +530,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
         tabIndex={0}
       />
 
-      <div className="mb-4">
+      <div className="shrink-0 px-5 pt-5 md:px-8 md:pt-8">
         <div className="mb-3 h-[3px] overflow-hidden rounded-full bg-stone/30">
           <div
             className="h-full rounded-full bg-oxblood transition-all"
@@ -569,7 +569,8 @@ export function StudyView({ deckId }: { deckId?: string }) {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-1 flex-col justify-center">
+      {/* Card scrolls; action footer stays pinned (esp. mobile long notes/images). */}
+      <div className="mx-auto w-full min-w-0 max-w-2xl flex-1 overflow-y-auto overflow-x-hidden px-5 pb-4 pt-4 md:px-8">
         <div
           role="button"
           tabIndex={-1}
@@ -645,8 +646,10 @@ export function StudyView({ deckId }: { deckId?: string }) {
             </>
           ) : null}
         </div>
+      </div>
 
-        <div className="mt-6">
+      <div className="shrink-0 border-t border-stone/25 bg-[#f3f3f0] px-5 py-3 md:px-8 md:pb-8 md:pt-4">
+        <div className="mx-auto w-full max-w-2xl">
           {!revealed ? (
             <div>
               <PillButton

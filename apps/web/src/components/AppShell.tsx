@@ -264,7 +264,11 @@ export function AppShell() {
             </>
           ) : null}
           {/* Study still mounts fresh so each session starts clean. */}
-          {showStudy ? <StudyView deckId={studyDeckId} /> : null}
+          {showStudy ? (
+            <div className="h-full">
+              <StudyView deckId={studyDeckId} />
+            </div>
+          ) : null}
           </main>
         </div>
       </div>
