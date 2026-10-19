@@ -651,7 +651,7 @@ export function StudyView({ deckId }: { deckId?: string }) {
                       />
                       {imageUrls.length > 1 ? (
                         <div className="px-2 py-1.5 text-center text-[11px] font-medium uppercase tracking-wide text-stone">
-                          {i === 0 ? "Whole" : "As sushi"}
+                          {i === 0 ? "Live fish" : "As sushi"}
                         </div>
                       ) : null}
                     </div>

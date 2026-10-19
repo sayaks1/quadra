@@ -199,7 +199,7 @@ export function EditCardModal({
                       />
                       {imageSrcs.length > 1 ? (
                         <div className="px-2 py-1 text-center text-[11px] uppercase tracking-wide text-stone">
-                          {i === 0 ? "Whole" : "As sushi"}
+                          {i === 0 ? "Live fish" : "As sushi"}
                         </div>
                       ) : null}
                     </div>
